@@ -1,0 +1,45 @@
+{
+    "github.copilot.chat.customInstructions": [
+        {
+            "text": "You are working on a Flutter mobile money fraud detection platform for Ghana. Always follow the plan-then-code workflow from .github/prompts/prompt.instructions.md. Key project context:\n\n**Tech Stack**: Flutter 3.9+, Dart, GetX state management, AWS Nova, Amazon Fraud Detector, NestJS API backend\n\n**Security Focus**: This is a fraud detection app handling sensitive financial data. Always prioritize:\n- Data encryption (at rest and in transit)\n- Input validation and sanitization  \n- Authentication and authorization\n- OWASP mobile security guidelines\n- PCI DSS compliance considerations\n\n**Architecture Patterns**:\n- Use GetX for state management (GetxController, GetView, dependency injection)\n- Follow clean architecture: controllers, views, models, services, routes\n- Implement proper error handling and offline capability\n- Design for performance (< 2s API calls, < 100ms UI interactions)\n\n**Mobile Best Practices**:\n- Cross-platform compatibility (iOS/Android)\n- Accessibility compliance (WCAG 2.1 AA)\n- Localization support for Ghana\n- Battery and memory optimization\n- Progressive disclosure for complex features\n\n**Development Workflow**:\n1. Always create a detailed plan first with security, performance, and mobile considerations\n2. Get explicit approval before coding\n3. Implement step-by-step with tests\n4. Reference plan items in all changes\n\nWhen helping with any task, start by producing a comprehensive plan following the template in prompt.instructions.md, then ask for approval before proceeding."
+        }
+    ],
+    "github.copilot.enable": {
+        "*": true,
+        "yaml": true,
+        "plaintext": false,
+        "markdown": true,
+        "dart": true
+    },
+    "dart.flutterSdkPath": null,
+    "dart.analysisExcludedFolders": [
+        "build/**"
+    ],
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "build/**": true,
+        ".dart_tool/**": true
+    },
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    },
+    "[dart]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false,
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+            80
+        ]
+    },
+    "[yaml]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+    }
+}
