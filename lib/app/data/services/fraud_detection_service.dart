@@ -1,52 +1,119 @@
-import 'package:dio/dio.dart';
 import 'package:get/get.dart';
+import '../models/fraud_detection_stats.dart';
+import '../models/network_exception.dart';
 import '../models/sms_message.dart';
 import '../models/fraud_result.dart';
+import 'network/base_network_service.dart';
 
 class FraudDetectionService extends GetxService {
-  late Dio _dio;
+  final BaseNetworkService _networkService = Get.find<BaseNetworkService>();
 
-  // In production, this would be your NestJS API endpoint
-  final String _baseUrl = 'https://your-api-endpoint.com/api';
+  /// Get fraud detection statistics overview for authenticated user
+  ///
+  /// This endpoint provides comprehensive statistics about fraud detection
+  /// activities including total analyses, fraud detection rates, and
+  /// analysis type breakdowns.
+  ///
+  /// Returns [FraudDetectionStats] with current statistics
+  /// Throws [NetworkException] on network errors
+  Future<FraudDetectionStats> getStatsOverview() async {
+    try {
+      // Make authenticated request to stats endpoint
+      final response = await _networkService.get<Map<String, dynamic>>(
+        '/fraud-detection/stats/overview',
+        fromJson: (data) => data as Map<String, dynamic>,
+      );
 
-  @override
-  void onInit() {
-    super.onInit();
-    _initializeDio();
+      // Handle successful response
+      if (response.success && response.data != null) {
+        return FraudDetectionStats.fromJson(response.data!);
+      }
+
+      // Handle API error response
+      throw ServerException(
+        message:
+            'Failed to load fraud detection statistics: ${response.message}',
+        statusCode: response.statusCode ?? 500,
+      );
+    } on NetworkException {
+      // Re-throw network exceptions as-is
+      rethrow;
+    } catch (e) {
+      // Handle unexpected errors
+      throw ServerException(
+        message: 'Unexpected error loading statistics: ${e.toString()}',
+      );
+    }
   }
 
-  void _initializeDio() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
+  /// Refresh fraud detection statistics with cache bypass
+  Future<FraudDetectionStats> refreshStatsOverview() async {
+    try {
+      // For refresh, we'll make the same call
+      // In a real implementation, you might add cache-busting query parameters
+      final response = await _networkService.get<Map<String, dynamic>>(
+        '/fraud-detection/stats/overview',
+        queryParameters: {
+          'refresh': DateTime.now().millisecondsSinceEpoch.toString(),
         },
-      ),
-    );
+        fromJson: (data) => data as Map<String, dynamic>,
+      );
 
-    // Add interceptors for logging and error handling
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          print(
-            '🔄 Fraud Detection API Request: ${options.method} ${options.path}',
-          );
-          handler.next(options);
-        },
-        onResponse: (response, handler) {
-          print('✅ Fraud Detection API Response: ${response.statusCode}');
-          handler.next(response);
-        },
-        onError: (error, handler) {
-          print('❌ Fraud Detection API Error: ${error.message}');
-          handler.next(error);
-        },
-      ),
-    );
+      if (response.success && response.data != null) {
+        return FraudDetectionStats.fromJson(response.data!);
+      }
+
+      throw ServerException(
+        message:
+            'Failed to refresh fraud detection statistics: ${response.message}',
+        statusCode: response.statusCode ?? 500,
+      );
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      throw ServerException(
+        message: 'Unexpected error refreshing statistics: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Get detailed fraud detection statistics for a specific time period
+  ///
+  /// [period] - Time period ('7d', '30d', '90d', '1y')
+  /// [includeDetails] - Whether to include detailed breakdown
+  ///
+  /// Returns [FraudDetectionStats] for the specified period
+  Future<FraudDetectionStats> getStatsForPeriod(
+    String period, {
+    bool includeDetails = false,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        'period': period,
+        if (includeDetails) 'includeDetails': 'true',
+      };
+
+      final response = await _networkService.get<Map<String, dynamic>>(
+        '/fraud-detection/stats/period',
+        queryParameters: queryParams,
+        fromJson: (data) => data as Map<String, dynamic>,
+      );
+
+      if (response.success && response.data != null) {
+        return FraudDetectionStats.fromJson(response.data!);
+      }
+
+      throw ServerException(
+        message: 'Failed to load period statistics: ${response.message}',
+        statusCode: response.statusCode ?? 500,
+      );
+    } on NetworkException {
+      rethrow;
+    } catch (e) {
+      throw ServerException(
+        message: 'Unexpected error loading period statistics: ${e.toString()}',
+      );
+    }
   }
 
   /// Analyze SMS message for fraud using AWS Nova (via your NestJS backend)

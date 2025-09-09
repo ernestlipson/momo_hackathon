@@ -46,13 +46,6 @@ class SettingsView extends GetView<SettingsController> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavigation(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Get.toNamed('/sms-scanner'),
-        backgroundColor: const Color(0xFF7C3AED),
-        elevation: 8,
-        child: const Icon(Icons.scanner, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
@@ -119,7 +112,7 @@ class SettingsView extends GetView<SettingsController> {
             value: controller.getToggleValue(option.key),
             onChanged: (value) =>
                 controller.onSettingChanged(option.key, value),
-            activeColor: const Color(0xFF7C3AED),
+            activeThumbColor: const Color(0xFF7C3AED),
           ),
         );
       case SettingsOptionType.navigation:

@@ -68,13 +68,6 @@ class HistoryView extends GetView<HistoryController> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavigation(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Get.toNamed('/sms-scanner'),
-        backgroundColor: const Color(0xFF7C3AED),
-        elevation: 8,
-        child: const Icon(Icons.scanner, color: Colors.white, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 

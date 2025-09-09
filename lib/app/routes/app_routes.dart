@@ -8,6 +8,7 @@ abstract class Routes {
   static const SETTINGS = _Paths.SETTINGS;
   static const SMS_SCANNER = _Paths.SMS_SCANNER;
   static const NEWS_DETAIL = _Paths.NEWS_DETAIL;
+  static const DETAILED_STATS = _Paths.DETAILED_STATS;
 }
 
 abstract class _Paths {
@@ -17,4 +18,5 @@ abstract class _Paths {
   static const SETTINGS = '/settings';
   static const SMS_SCANNER = '/sms-scanner';
   static const NEWS_DETAIL = '/news-detail';
+  static const DETAILED_STATS = '/detailed-stats';
 }

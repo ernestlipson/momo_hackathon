@@ -10,6 +10,8 @@ import '../modules/sms_scanner/bindings/sms_scanner_binding.dart';
 import '../modules/sms_scanner/views/sms_scanner_view.dart';
 import '../modules/news_detail/bindings/news_detail_binding.dart';
 import '../modules/news_detail/views/news_detail_view.dart';
+import '../modules/detailed_stats/bindings/detailed_stats_binding.dart';
+import '../modules/detailed_stats/views/detailed_stats_view.dart';
 
 part 'app_routes.dart';
 
@@ -43,6 +45,11 @@ class AppPages {
       name: _Paths.NEWS_DETAIL,
       page: () => const NewsDetailView(),
       binding: NewsDetailBinding(),
+    ),
+    GetPage(
+      name: _Paths.DETAILED_STATS,
+      page: () => const DetailedStatsView(),
+      binding: DetailedStatsBinding(),
     ),
   ];
 }

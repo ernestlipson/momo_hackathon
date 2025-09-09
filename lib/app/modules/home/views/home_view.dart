@@ -10,6 +10,7 @@ class HomeView extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: _buildProfileAppBar(),
       body: SafeArea(
         child: Column(
           children: [
@@ -19,49 +20,87 @@ class HomeView extends GetView<HomeController> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-                    // Home Title
-                    const Text(
-                      'Home',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Stats Cards Row
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Total Scan',
-                            value: controller.totalScan,
-                            isAmount: false,
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.shield_outlined,
+                                size: 20,
+                                color: Color(0xFF7C3AED),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Detection Stats',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Amount Saved',
-                            value: controller.amountSaved,
-                            isAmount: true,
-                          ),
+
+                        Row(
+                          children: [
+                            Text(
+                              "View more",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                Get.toNamed('/detailed-stats');
+                              },
+                              icon: const Icon(
+                                Icons.arrow_forward_ios,
+                                size: 16,
+                                color: Color(0xFF7C3AED),
+                              ),
+                              tooltip: 'View Detailed Stats',
+                            ),
+                          ],
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
 
-                    const SizedBox(height: 40),
+                    // Primary Stats Cards Row
+                    Obx(
+                      () => controller.isLoadingStats.value
+                          ? _buildStatsLoadingState()
+                          : _buildFraudStatsCards(),
+                    ),
+
+                    // const SizedBox(height: 20),
+
+                    // // Additional Stats Row
+                    // Obx(
+                    //   () => controller.isLoadingStats.value
+                    //       ? const SizedBox.shrink()
+                    //       : _buildAdditionalStatsCards(),
+                    // ),
+                    const SizedBox(height: 20),
 
                     // Articles Section
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Latest News',
+                          'Articles',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),
@@ -123,48 +162,359 @@ class HomeView extends GetView<HomeController> {
         elevation: 8,
         child: const Icon(Icons.scanner, color: Colors.white, size: 28),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required dynamic value,
-    required bool isAmount,
-  }) {
+  /// Build custom profile AppBar
+  PreferredSizeWidget _buildProfileAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shadowColor: Colors.black.withOpacity(0.2),
+      toolbarHeight: 80,
+      automaticallyImplyLeading: false,
+      title: Obx(
+        () => controller.isLoadingProfile.value
+            ? _buildProfileLoadingState()
+            : _buildProfileContent(),
+      ),
+    );
+  }
+
+  /// Build profile content in AppBar
+  Widget _buildProfileContent() {
+    return Row(
+      children: [
+        // Profile Avatar
+        GestureDetector(
+          onTap: () => _openProfileSettings(),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey.withOpacity(0.3), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.grey.withOpacity(0.1),
+              backgroundImage: controller.userAvatarUrl.value.isNotEmpty
+                  ? NetworkImage(controller.userAvatarUrl.value)
+                  : null,
+              child: controller.userAvatarUrl.value.isEmpty
+                  ? Text(
+                      _getInitials(controller.userName.value),
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 16),
+
+        // User Info Section
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                controller.userName.value,
+                style: const TextStyle(
+                  color: Colors.black87,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                controller.userEmail.value,
+                style: TextStyle(
+                  color: Colors.black.withOpacity(0.6),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+
+        // App Name Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: const Text(
+            'CatchDem',
+            style: TextStyle(
+              color: Color(0xFF7C3AED),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build profile loading state
+  Widget _buildProfileLoadingState() {
+    return Row(
+      children: [
+        // Loading Avatar
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.grey.withOpacity(0.2),
+          ),
+          child: const CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
+          ),
+        ),
+
+        const SizedBox(width: 16),
+
+        // Loading User Info
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 120,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: 180,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // App Name Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF7C3AED).withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: const Text(
+            'CatchDem',
+            style: TextStyle(
+              color: Color(0xFF7C3AED),
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Get user initials for avatar fallback
+  String _getInitials(String name) {
+    List<String> names = name.trim().split(' ');
+    if (names.length >= 2) {
+      return '${names[0][0]}${names[1][0]}'.toUpperCase();
+    } else if (names.isNotEmpty) {
+      return names[0].substring(0, 1).toUpperCase();
+    }
+    return 'U';
+  }
+
+  /// Open profile settings (placeholder)
+  void _openProfileSettings() {
+    Get.snackbar(
+      'Profile Settings',
+      'Profile management feature coming soon!',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: const Color(0xFF7C3AED).withOpacity(0.9),
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+      margin: const EdgeInsets.all(16),
+      borderRadius: 8,
+    );
+  }
+
+  /// Build fraud detection statistics cards
+  Widget _buildFraudStatsCards() {
+    final stats = controller.fraudStats.value;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildFraudStatCard(
+                title: 'Total Analyses',
+                value: stats.totalAnalyses.toString(),
+                icon: Icons.analytics_outlined,
+                color: const Color(0xFF7C3AED),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildFraudStatCard(
+                title: 'Fraud Detected',
+                value: stats.fraudDetected.toString(),
+                icon: Icons.security_outlined,
+                color: stats.fraudDetected > 0 ? Colors.red : Colors.green,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFraudStatCard(
+                title: 'Fraud Rate',
+                value: stats.confidenceDisplay,
+                icon: Icons.percent_outlined,
+                color: stats.hasGoodConfidence ? Colors.orange : Colors.red,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildFraudStatCard(
+                title: 'Last Analysis',
+                value: stats.lastAnalysisDisplay,
+                icon: Icons.access_time_outlined,
+                color: Colors.redAccent,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Build statistics loading state
+  Widget _buildStatsLoadingState() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildLoadingCard()),
+            const SizedBox(width: 16),
+            Expanded(child: _buildLoadingCard()),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _buildLoadingCard()),
+            const SizedBox(width: 16),
+            Expanded(child: _buildLoadingCard()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Build loading card skeleton
+  Widget _buildLoadingCard() {
     return Container(
+      height: 100,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF7C3AED).withOpacity(0.1),
+        color: Colors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF7C3AED).withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF7C3AED).withOpacity(0.8),
+          Container(
+            width: 80,
+            height: 14,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
-          const SizedBox(height: 8),
-          Obx(
-            () => Text(
-              isAmount
-                  ? '\$${value.value.toStringAsFixed(2)}'
-                  : '${value.value.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF7C3AED),
-              ),
+          const SizedBox(height: 12),
+          Container(
+            width: 60,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build enhanced fraud detection stat card
+  Widget _buildFraudStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      height: 100, // Fixed height to ensure consistency
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: color.withOpacity(0.8),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
