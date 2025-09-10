@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
 import '../models/fraud_detection_stats.dart';
-import '../models/network_exception.dart';
 import '../models/sms_message.dart';
 import '../models/fraud_result.dart';
 import '../models/recent_analysis.dart';
@@ -9,83 +8,42 @@ import 'network/base_network_service.dart';
 class FraudDetectionService extends GetxService {
   final BaseNetworkService _networkService = Get.find<BaseNetworkService>();
 
-  /// Get fraud detection statistics overview for authenticated user
-  ///
-  /// This endpoint provides comprehensive statistics about fraud detection
-  /// activities including total analyses, fraud detection rates, and
-  /// analysis type breakdowns.
-  ///
-  /// Returns [FraudDetectionStats] with current statistics
-  /// Throws [NetworkException] on network errors
-  Future<FraudDetectionStats> getStatsOverview() async {
+  Future<FraudDetectionStats?> getStatsOverview() async {
     try {
-      // Make authenticated request to stats endpoint
-      final response = await _networkService.get<Map<String, dynamic>>(
+      final response = await _networkService.get(
         '/fraud-detection/stats/overview',
-        fromJson: (data) => data as Map<String, dynamic>,
       );
-
-      // Handle successful response
-      if (response.success && response.data != null) {
-        return FraudDetectionStats.fromJson(response.data!);
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        return FraudDetectionStats.fromJson(response.data);
       }
-
-      // Handle API error response
-      throw ServerException(
-        message:
-            'Failed to load fraud detection statistics: ${response.message}',
-        statusCode: response.statusCode ?? 500,
-      );
-    } on NetworkException {
-      // Re-throw network exceptions as-is
-      rethrow;
+      return null;
     } catch (e) {
-      // Handle unexpected errors
-      throw ServerException(
-        message: 'Unexpected error loading statistics: ${e.toString()}',
-      );
+      Get.log('❌ getStatsOverview error: $e');
+      return null;
     }
   }
 
-  /// Refresh fraud detection statistics with cache bypass
-  Future<FraudDetectionStats> refreshStatsOverview() async {
+  Future<FraudDetectionStats?> refreshStatsOverview() async {
     try {
-      // For refresh, we'll make the same call
-      // In a real implementation, you might add cache-busting query parameters
-      final response = await _networkService.get<Map<String, dynamic>>(
+      final response = await _networkService.get(
         '/fraud-detection/stats/overview',
-        queryParameters: {
-          'refresh': DateTime.now().millisecondsSinceEpoch.toString(),
-        },
-        fromJson: (data) => data as Map<String, dynamic>,
+        query: {'refresh': DateTime.now().millisecondsSinceEpoch.toString()},
       );
-
-      if (response.success && response.data != null) {
-        return FraudDetectionStats.fromJson(response.data!);
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        return FraudDetectionStats.fromJson(response.data);
       }
-
-      throw ServerException(
-        message:
-            'Failed to refresh fraud detection statistics: ${response.message}',
-        statusCode: response.statusCode ?? 500,
-      );
-    } on NetworkException {
-      rethrow;
+      return null;
     } catch (e) {
-      throw ServerException(
-        message: 'Unexpected error refreshing statistics: ${e.toString()}',
-      );
+      Get.log('❌ refreshStatsOverview error: $e');
+      return null;
     }
   }
 
-  /// Get recent fraud analyses for the authenticated user
-  ///
-  /// This endpoint provides a list of recent fraud detection analyses
-  /// performed by the user, including their status, confidence, and metadata.
-  ///
-  /// Returns [RecentAnalysesResponse] with recent analyses and total count
-  /// Throws [NetworkException] on network errors
-  Future<RecentAnalysesResponse> getRecentAnalyses({
+  Future<RecentAnalysesResponse?> getRecentAnalyses({
     int? limit,
     int? offset,
   }) async {
@@ -94,42 +52,24 @@ class FraudDetectionService extends GetxService {
         if (limit != null) 'limit': limit.toString(),
         if (offset != null) 'offset': offset.toString(),
       };
-
-      // Make authenticated request to recent analyses endpoint
-      final response = await _networkService.get<Map<String, dynamic>>(
+      final response = await _networkService.get(
         '/fraud-detection/stats/recent',
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
-        fromJson: (data) => data as Map<String, dynamic>,
+        query: queryParams.isNotEmpty ? queryParams : null,
       );
-
-      // Handle successful response
-      if (response.success && response.data != null) {
-        return RecentAnalysesResponse.fromJson(response.data!);
+      Get.log('Recent analyses response: ${response?.data} $response');
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        return RecentAnalysesResponse.fromJson(response.data);
       }
-
-      // Handle API error response
-      throw ServerException(
-        message: 'Failed to load recent analyses: ${response.message}',
-        statusCode: response.statusCode ?? 500,
-      );
-    } on NetworkException {
-      // Re-throw network exceptions as-is
-      rethrow;
+      return null;
     } catch (e) {
-      // Handle unexpected errors
-      throw ServerException(
-        message: 'Unexpected error loading recent analyses: ${e.toString()}',
-      );
+      Get.log('❌ getRecentAnalyses error: $e');
+      return null;
     }
   }
 
-  /// Get detailed fraud detection statistics for a specific time period
-  ///
-  /// [period] - Time period ('7d', '30d', '90d', '1y')
-  /// [includeDetails] - Whether to include detailed breakdown
-  ///
-  /// Returns [FraudDetectionStats] for the specified period
-  Future<FraudDetectionStats> getStatsForPeriod(
+  Future<FraudDetectionStats?> getStatsForPeriod(
     String period, {
     bool includeDetails = false,
   }) async {
@@ -138,27 +78,19 @@ class FraudDetectionService extends GetxService {
         'period': period,
         if (includeDetails) 'includeDetails': 'true',
       };
-
-      final response = await _networkService.get<Map<String, dynamic>>(
+      final response = await _networkService.get(
         '/fraud-detection/stats/period',
-        queryParameters: queryParams,
-        fromJson: (data) => data as Map<String, dynamic>,
+        query: queryParams,
       );
-
-      if (response.success && response.data != null) {
-        return FraudDetectionStats.fromJson(response.data!);
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        return FraudDetectionStats.fromJson(response.data);
       }
-
-      throw ServerException(
-        message: 'Failed to load period statistics: ${response.message}',
-        statusCode: response.statusCode ?? 500,
-      );
-    } on NetworkException {
-      rethrow;
+      return null;
     } catch (e) {
-      throw ServerException(
-        message: 'Unexpected error loading period statistics: ${e.toString()}',
-      );
+      Get.log('❌ getStatsForPeriod error: $e');
+      return null;
     }
   }
 

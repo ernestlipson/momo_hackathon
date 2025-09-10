@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:momo_hackathon/app/data/models/scan_history.dart';
-import 'package:momo_hackathon/app/data/models/fraud_result.dart';
-import 'package:momo_hackathon/app/data/models/sms_message.dart';
 import 'package:momo_hackathon/app/data/models/recent_analysis.dart';
 import 'package:momo_hackathon/app/data/services/fraud_detection_service.dart';
 
@@ -35,15 +32,27 @@ class HistoryController extends GetxController {
       // Fetch recent analyses from API
       final response = await _fraudService.getRecentAnalyses();
 
-      recentAnalyses.assignAll(response.analyses);
-      totalAnalyses.value = response.total;
-
-      print('📊 Loaded ${response.analyses.length} recent analyses');
-    } catch (e) {
-      print('❌ Error loading recent analyses: $e');
+      if (response != null) {
+        recentAnalyses.assignAll(response.analyses);
+        totalAnalyses.value = response.total;
+        print('📊 Loaded ${response.analyses.length} recent analyses');
+      } else {
+        recentAnalyses.clear();
+        totalAnalyses.value = 0;
+        errorMessage.value = 'No recent analyses data available.';
+        Get.log('❌ Error loading recent analyses: response is null');
+        Get.snackbar(
+          'Loading Error',
+          'Unable to load recent analyses. Please check your connection and try again.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange.withOpacity(0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (e, s) {
+      Get.log('❌ Error loading recent analyses: $e $s');
       errorMessage.value = e.toString();
-
-      // Show user-friendly error message
       Get.snackbar(
         'Loading Error',
         'Unable to load recent analyses. Please check your connection and try again.',

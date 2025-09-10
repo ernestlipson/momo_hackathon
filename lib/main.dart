@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'app/data/services/local_auth_db_service.dart';
 import 'app/routes/app_pages.dart';
 import 'app/bindings/service_bindings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await LocalAuthDbService.init();
+
   InitialBindings().dependencies();
 
   runApp(

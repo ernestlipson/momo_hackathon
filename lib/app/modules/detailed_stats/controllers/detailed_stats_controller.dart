@@ -41,7 +41,7 @@ class DetailedStatsController extends GetxController {
       error.value = null;
 
       final stats = await _fraudService.getStatsOverview();
-      detailedStats.value = stats;
+      detailedStats.value = stats!;
 
       print(
         '📊 Loaded detailed fraud detection statistics: ${stats.totalAnalyses} analyses',

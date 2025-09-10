@@ -28,10 +28,6 @@ class SmsScannerController extends GetxController {
   final fraudDetected = 0.obs;
   final lastScanTime = Rxn<DateTime>();
 
-  // SMS receiver - temporarily disabled for demo
-  // SmsReceiver? _smsReceiver;
-  // StreamSubscription<SmsMessage>? _smsSubscription;
-
   @override
   void onInit() {
     super.onInit();

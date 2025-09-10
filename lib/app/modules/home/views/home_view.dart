@@ -300,11 +300,20 @@ class HomeView extends GetView<HomeController> {
 
   /// Get user initials for avatar fallback
   String _getInitials(String name) {
-    List<String> names = name.trim().split(' ');
-    if (names.length >= 2) {
+    if (name.trim().isEmpty) {
+      return 'U';
+    }
+
+    List<String> names = name
+        .trim()
+        .split(' ')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    if (names.length >= 2 && names[0].isNotEmpty && names[1].isNotEmpty) {
       return '${names[0][0]}${names[1][0]}'.toUpperCase();
-    } else if (names.isNotEmpty) {
-      return names[0].substring(0, 1).toUpperCase();
+    } else if (names.isNotEmpty && names[0].isNotEmpty) {
+      return names[0][0].toUpperCase();
     }
     return 'U';
   }
@@ -392,7 +401,7 @@ class HomeView extends GetView<HomeController> {
       buttonColor: Colors.red,
       onConfirm: () {
         Get.back(); // Close dialog
-        controller.logout();
+        // controller.logout();
       },
     );
   }

@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 
 import '../modules/main_navigation/bindings/main_navigation_binding.dart';
 import '../modules/main_navigation/views/main_navigation_view.dart';
@@ -27,7 +28,9 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.SIGNUP_STEP1;
+  static String get INITIAL => LocalAuthDbService.hasLoggedInBefore
+      ? Routes.MAIN_NAVIGATION
+      : Routes.SIGNUP_STEP1;
 
   static final routes = [
     GetPage(

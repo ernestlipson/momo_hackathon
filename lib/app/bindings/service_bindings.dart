@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
+import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import '../data/services/network/base_network_service.dart';
-import '../data/services/storage/secure_storage_service.dart';
 import '../data/services/fraud_detection_service.dart';
 import '../data/services/news_service.dart';
 import '../data/services/auth_service.dart';
@@ -9,16 +9,6 @@ import '../data/services/auth_service.dart';
 class ServiceBindings extends Bindings {
   @override
   void dependencies() {
-    // Initialize secure storage service first (synchronously)
-    if (!Get.isRegistered<SecureStorageService>()) {
-      final secureStorage = SecureStorageService();
-      Get.put<SecureStorageService>(secureStorage, permanent: true);
-      // Initialize storage asynchronously in the background
-      secureStorage.init().catchError((e) {
-        print('Warning: Failed to initialize SecureStorageService: $e');
-      });
-    }
-
     // Initialize network service immediately for core functionality
     if (!Get.isRegistered<BaseNetworkService>()) {
       Get.put<BaseNetworkService>(BaseNetworkService(), permanent: true);
@@ -45,6 +35,7 @@ class ServiceBindings extends Bindings {
 class InitialBindings extends Bindings {
   @override
   void dependencies() {
+    Get.put<LocalAuthDbService>(LocalAuthDbService(), permanent: true);
     // Put essential services here that need immediate access
     Get.put<BaseNetworkService>(BaseNetworkService(), permanent: true);
   }

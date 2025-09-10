@@ -2,16 +2,14 @@ import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import 'package:momo_hackathon/app/data/models/news_article.dart';
 import 'package:momo_hackathon/app/data/models/fraud_detection_stats.dart';
+import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import 'package:momo_hackathon/app/data/services/news_service.dart';
 import 'package:momo_hackathon/app/data/services/fraud_detection_service.dart';
-import 'package:momo_hackathon/app/data/services/storage/secure_storage_service.dart';
-import 'package:momo_hackathon/app/modules/auth/controllers/auth_controller.dart';
 
 class HomeController extends GetxController {
   // Services
   final NewsService _newsService = Get.find<NewsService>();
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
-  final SecureStorageService _storageService = Get.find<SecureStorageService>();
 
   // Observable variables for fraud detection stats
   final fraudStats = FraudDetectionStats.empty().obs;
@@ -28,8 +26,8 @@ class HomeController extends GetxController {
   final newsError = RxnString();
 
   // User profile data (loaded from secure storage)
-  final userName = 'Loading...'.obs;
-  final userEmail = 'Loading...'.obs;
+  final userName = 'User'.obs;
+  final userEmail = 'user@example.com'.obs;
   final userAvatarUrl = ''.obs;
   final isLoadingProfile = true.obs;
 
@@ -46,31 +44,34 @@ class HomeController extends GetxController {
       isLoadingProfile.value = true;
 
       // Get user data from secure storage
-      final userData = _storageService.getUserData();
+      final userData = LocalAuthDbService.getUserData();
 
       if (userData != null) {
-        // Extract user information
-        final firstName = userData['firstName'] as String? ?? '';
-        final lastName = userData['lastName'] as String? ?? '';
-        final email = userData['email'] as String? ?? '';
-        final avatar = userData['avatar'] as String? ?? '';
+        // Extract user information with safe string handling
+        final firstName = (userData['firstName'] as String?)?.trim() ?? '';
+        final lastName = (userData['lastName'] as String?)?.trim() ?? '';
+        final email = (userData['email'] as String?)?.trim() ?? '';
+        final avatar = (userData['avatar'] as String?)?.trim() ?? '';
 
-        // Update observables
-        userName.value = '$firstName $lastName'.trim();
-        userEmail.value = email;
+        // Update observables with safe string concatenation
+        final fullName = '$firstName $lastName'.trim();
+        userName.value = fullName.isNotEmpty ? fullName : 'User';
+        userEmail.value = email.isNotEmpty ? email : 'user@example.com';
         userAvatarUrl.value = avatar;
 
-        print('✅ User profile loaded: ${userName.value} (${userEmail.value})');
+        Get.log(
+          '✅ User profile loaded: ${userName.value} (${userEmail.value})',
+        );
       } else {
         // Fallback if no user data found
         userName.value = 'User';
         userEmail.value = 'user@example.com';
         userAvatarUrl.value = '';
 
-        print('⚠️ No user data found in storage');
+        Get.log('⚠️ No user data found in storage');
       }
     } catch (e) {
-      print('❌ Error loading user profile: $e');
+      Get.log('❌ Error loading user profile: $e');
 
       // Fallback values
       userName.value = 'User';
@@ -95,20 +96,29 @@ class HomeController extends GetxController {
       statsError.value = null;
 
       final stats = await _fraudService.getStatsOverview();
-      fraudStats.value = stats;
-
-      // Update legacy stats for backward compatibility
-      totalScan.value = stats.totalAnalyses;
-      amountSaved.value = stats.amountSaved;
-
-      print(
-        '📊 Loaded fraud detection statistics: ${stats.totalAnalyses} analyses',
-      );
+      if (stats != null) {
+        fraudStats.value = stats;
+        totalScan.value = stats.totalAnalyses;
+        amountSaved.value = stats.amountSaved;
+        Get.log(
+          '📊 Loaded fraud detection statistics: ${stats.totalAnalyses} analyses',
+        );
+      } else {
+        Get.log('❌ Error loading fraud stats: stats is null');
+        statsError.value = 'No stats data available.';
+        // Optionally set fallback values or keep previous
+        Get.snackbar(
+          'Statistics Loading Error',
+          'Unable to load fraud detection statistics. Showing cached data.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.orange.withOpacity(0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
     } catch (e) {
-      print('❌ Error loading fraud stats: $e');
+      Get.log('❌ Error loading fraud stats: $e');
       statsError.value = e.toString();
-
-      // Show user-friendly error message
       Get.snackbar(
         'Statistics Loading Error',
         'Unable to load fraud detection statistics. Showing cached data.',
@@ -129,24 +139,33 @@ class HomeController extends GetxController {
       statsError.value = null;
 
       final stats = await _fraudService.refreshStatsOverview();
-      fraudStats.value = stats;
-
-      // Update legacy stats
-      totalScan.value = stats.totalAnalyses;
-      amountSaved.value = stats.amountSaved;
-
-      Get.snackbar(
-        'Statistics Updated',
-        'Fraud detection statistics refreshed successfully',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.withOpacity(0.8),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
+      if (stats != null) {
+        fraudStats.value = stats;
+        totalScan.value = stats.totalAnalyses;
+        amountSaved.value = stats.amountSaved;
+        Get.snackbar(
+          'Statistics Updated',
+          'Fraud detection statistics refreshed successfully',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
+      } else {
+        Get.log('❌ Error refreshing fraud stats: stats is null');
+        statsError.value = 'No stats data available.';
+        Get.snackbar(
+          'Refresh Failed',
+          'Unable to refresh statistics. Please try again later.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red.withOpacity(0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
     } catch (e) {
-      print('❌ Error refreshing fraud stats: $e');
+      Get.log('❌ Error refreshing fraud stats: $e');
       statsError.value = e.toString();
-
       Get.snackbar(
         'Refresh Failed',
         'Unable to refresh statistics. Please try again later.',
@@ -182,9 +201,9 @@ class HomeController extends GetxController {
         newsArticles.assignAll(techArticles);
       }
 
-      print('📰 Loaded ${newsArticles.length} news articles');
+      Get.log('📰 Loaded ${newsArticles.length} news articles');
     } catch (e) {
-      print('❌ Error loading news: $e');
+      Get.log('❌ Error loading news: $e');
       newsError.value = e.toString();
 
       // Show user-friendly error message
@@ -228,18 +247,5 @@ class HomeController extends GetxController {
   void onScanButtonPressed() {
     // Navigate to SMS scanner
     Get.toNamed('/sms-scanner');
-  }
-
-  /// Logout user (delegate to AuthController)
-  Future<void> logout() async {
-    try {
-      final authController = Get.find<AuthController>();
-      await authController.logout();
-    } catch (e) {
-      print('❌ Error accessing AuthController for logout: $e');
-      // Fallback logout by clearing storage directly
-      await _storageService.clearAuthData();
-      Get.offAllNamed('/login');
-    }
   }
 }

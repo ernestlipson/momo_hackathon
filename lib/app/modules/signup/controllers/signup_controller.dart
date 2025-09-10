@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:momo_hackathon/app/data/models/signup_request.dart';
 import 'package:momo_hackathon/app/data/services/auth_service.dart';
-import 'package:momo_hackathon/app/data/models/network_exception.dart';
+// ...existing code...
+import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 
 class SignupController extends GetxController {
   // Services
@@ -186,11 +187,8 @@ class SignupController extends GetxController {
     if (!personalFormKey.currentState!.validate() || !isStep2Valid) {
       return;
     }
-
+    isLoading.value = true;
     try {
-      isLoading.value = true;
-
-      // Create signup request
       final signupRequest = SignupRequest(
         email: emailController.text.trim(),
         password: passwordController.text,
@@ -198,86 +196,41 @@ class SignupController extends GetxController {
         lastName: lastNameController.text.trim(),
         location: selectedLocation.value!.code,
       );
-
-      // Call registration API
       final response = await _authService.register(signupRequest);
-
-      // Navigate to success page with user data
-      Get.offAllNamed(
-        '/signup-success',
-        arguments: {
-          'firstName': response.user.firstName,
-          'lastName': response.user.lastName,
-          'email': response.user.email,
-          'userId': response.userId,
-        },
-      );
-    } on ValidationException catch (e) {
-      _handleValidationError(e);
-    } on NetworkException catch (e) {
-      _handleNetworkError(e);
+      if (response != null) {
+        await LocalAuthDbService.setLoggedIn(true);
+        Get.offAllNamed(
+          '/signup-success',
+          arguments: {
+            'firstName': response.user.firstName,
+            'lastName': response.user.lastName,
+            'email': response.user.email,
+            'userId': response.userId,
+          },
+        );
+      } else {
+        Get.snackbar(
+          'Registration Failed',
+          'Registration failed. Please check your details and try again.',
+          snackPosition: SnackPosition.TOP,
+          backgroundColor: Colors.red.withOpacity(0.8),
+          colorText: Colors.white,
+          duration: const Duration(seconds: 4),
+        );
+      }
     } catch (e) {
-      // Get.snackbar(
-      //   'Registration Failed',
-      //   'An unexpected error occurred. Please try again. $e',
-      //   snackPosition: SnackPosition.TOP,
-      //   backgroundColor: Colors.red.withOpacity(0.8),
-      //   colorText: Colors.white,
-      //   duration: const Duration(seconds: 3),
-      // );
-      // Get.log("Error Occured: $e");
-      // print('❌ Unexpected signup error: $e');
+      Get.log("Error Occurred: $e");
+      Get.snackbar(
+        'Registration Error',
+        'An unexpected error occurred. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 4),
+      );
     } finally {
       isLoading.value = false;
     }
-  }
-
-  /// Handle validation errors
-  void _handleValidationError(ValidationException e) {
-    String message = e.message;
-
-    // Handle field-specific errors
-    if (e.fieldErrors != null && e.fieldErrors!.isNotEmpty) {
-      final errors = <String>[];
-      e.fieldErrors!.forEach((field, fieldErrors) {
-        errors.addAll(fieldErrors);
-      });
-      message = errors.join('\n');
-    }
-
-    Get.snackbar(
-      'Validation Error',
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.orange.withOpacity(0.8),
-      colorText: Colors.white,
-      duration: const Duration(seconds: 4),
-    );
-  }
-
-  /// Handle network errors
-  void _handleNetworkError(NetworkException e) {
-    String message = 'Registration failed. Please try again.';
-
-    if (e is ConnectionException) {
-      message =
-          'No internet connection. Please check your network and try again.';
-    } else if (e is ServerException) {
-      message = e.message;
-    } else if (e is AuthenticationException) {
-      message = 'Registration failed. Please check your details and try again.';
-    }
-
-    Get.log("Network Error Occured: $e ${e.statusCode} ${e.message}");
-
-    Get.snackbar(
-      'Registration Failed',
-      message,
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.red.withOpacity(0.8),
-      colorText: Colors.white,
-      duration: const Duration(seconds: 3),
-    );
   }
 
   /// Email validator
