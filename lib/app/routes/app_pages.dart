@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 
+import '../modules/main_navigation/bindings/main_navigation_binding.dart';
+import '../modules/main_navigation/views/main_navigation_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/history/bindings/history_binding.dart';
@@ -12,15 +14,25 @@ import '../modules/news_detail/bindings/news_detail_binding.dart';
 import '../modules/news_detail/views/news_detail_view.dart';
 import '../modules/detailed_stats/bindings/detailed_stats_binding.dart';
 import '../modules/detailed_stats/views/detailed_stats_view.dart';
+import '../modules/login/bindings/login_binding.dart';
+import '../modules/login/views/login_view.dart';
+import '../modules/signup/bindings/signup_binding.dart';
+import '../modules/signup/views/signup_step1_view.dart';
+import '../modules/signup/views/signup_step2_view.dart';
 
 part 'app_routes.dart';
 
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.HOME;
+  static const INITIAL = Routes.SIGNUP_STEP1;
 
   static final routes = [
+    GetPage(
+      name: _Paths.MAIN_NAVIGATION,
+      page: () => const MainNavigationView(),
+      binding: MainNavigationBinding(),
+    ),
     GetPage(
       name: _Paths.HOME,
       page: () => const HomeView(),
@@ -50,6 +62,21 @@ class AppPages {
       name: _Paths.DETAILED_STATS,
       page: () => const DetailedStatsView(),
       binding: DetailedStatsBinding(),
+    ),
+    GetPage(
+      name: _Paths.LOGIN,
+      page: () => const LoginView(),
+      binding: LoginBinding(),
+    ),
+    GetPage(
+      name: _Paths.SIGNUP_STEP1,
+      page: () => const SignupStep1View(),
+      binding: SignupBinding(),
+    ),
+    GetPage(
+      name: _Paths.SIGNUP_STEP2,
+      page: () => const SignupStep2View(),
+      binding: SignupBinding(),
     ),
   ];
 }

@@ -10,6 +10,7 @@ class SmsScannerView extends GetView<SmsScannerController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -46,29 +47,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: controller.scanRecentMessages,
-        backgroundColor: const Color(0xFF7C3AED),
-        elevation: 8,
-        child: Obx(
-          () => controller.isScanning.value
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Icon(
-                  Icons.qr_code_scanner,
-                  color: Colors.white,
-                  size: 28,
-                ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 

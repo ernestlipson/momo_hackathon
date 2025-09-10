@@ -6,7 +6,6 @@ class SettingsController extends GetxController {
   final isDarkMode = false.obs;
   final notificationsEnabled = true.obs;
   final autoScanEnabled = false.obs;
-  final selectedNavIndex = 2.obs;
 
   // Settings options
   final settingsOptions = <SettingsOption>[
@@ -60,35 +59,9 @@ class SettingsController extends GetxController {
     loadSettings();
   }
 
-  @override
-  void onReady() {
-    super.onReady();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
-  }
-
   void loadSettings() {
     // Load settings from local storage
     // In a real app, this would load from SharedPreferences or similar
-  }
-
-  void onNavItemTapped(int index) {
-    selectedNavIndex.value = index;
-
-    switch (index) {
-      case 0:
-        Get.offAllNamed('/home');
-        break;
-      case 1:
-        Get.toNamed('/history');
-        break;
-      case 2:
-        // Already on Settings
-        break;
-    }
   }
 
   void onSettingChanged(String key, bool value) {

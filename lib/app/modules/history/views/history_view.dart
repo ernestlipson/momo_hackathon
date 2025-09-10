@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/history_controller.dart';
-import 'package:momo_hackathon/app/data/models/scan_history.dart';
+import 'package:momo_hackathon/app/data/models/recent_analysis.dart';
 
 class HistoryView extends GetView<HistoryController> {
   const HistoryView({super.key});
@@ -32,13 +32,27 @@ class HistoryView extends GetView<HistoryController> {
                             color: Colors.black87,
                           ),
                         ),
-                        IconButton(
-                          onPressed: controller.clearHistory,
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Color(0xFF7C3AED),
-                            size: 28,
-                          ),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: controller.refreshHistoryData,
+                              icon: const Icon(
+                                Icons.refresh,
+                                color: Color(0xFF7C3AED),
+                                size: 28,
+                              ),
+                              tooltip: 'Refresh History',
+                            ),
+                            IconButton(
+                              onPressed: controller.clearHistory,
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Color(0xFF7C3AED),
+                                size: 28,
+                              ),
+                              tooltip: 'Clear History',
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -50,14 +64,34 @@ class HistoryView extends GetView<HistoryController> {
                         return _buildLoadingState();
                       }
 
-                      if (controller.scanHistories.isEmpty) {
+                      if (controller.recentAnalyses.isEmpty &&
+                          controller.errorMessage.value != null) {
+                        return _buildErrorState();
+                      }
+
+                      if (controller.recentAnalyses.isEmpty) {
                         return _buildEmptyState();
                       }
 
                       return Column(
-                        children: controller.scanHistories
-                            .map((scan) => _buildScanHistoryCard(scan))
-                            .toList(),
+                        children: [
+                          // Total count header
+                          if (controller.totalAnalyses.value > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Text(
+                                'Total Analyses: ${controller.totalAnalyses.value}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ...controller.recentAnalyses.map(
+                            (analysis) => _buildAnalysisCard(analysis),
+                          ),
+                        ],
                       );
                     }),
                   ],
@@ -67,7 +101,6 @@ class HistoryView extends GetView<HistoryController> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
@@ -82,8 +115,46 @@ class HistoryView extends GetView<HistoryController> {
             ),
             SizedBox(height: 16),
             Text(
-              'Loading scan history...',
+              'Loading recent analyses...',
               style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 100.0),
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, size: 80, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'Unable to load analyses',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please check your internet connection and try again.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: controller.refreshHistoryData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+              ),
             ),
           ],
         ),
@@ -97,10 +168,10 @@ class HistoryView extends GetView<HistoryController> {
         padding: const EdgeInsets.symmetric(vertical: 100.0),
         child: Column(
           children: [
-            Icon(Icons.security_outlined, size: 80, color: Colors.grey[300]),
+            Icon(Icons.analytics_outlined, size: 80, color: Colors.grey[300]),
             const SizedBox(height: 16),
             Text(
-              'No scan history yet',
+              'No analyses yet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
@@ -109,7 +180,7 @@ class HistoryView extends GetView<HistoryController> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Start scanning SMS messages to see your fraud detection history',
+              'Start analyzing messages to see your fraud detection history',
               style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
@@ -119,7 +190,7 @@ class HistoryView extends GetView<HistoryController> {
     );
   }
 
-  Widget _buildScanHistoryCard(ScanHistory scan) {
+  Widget _buildAnalysisCard(RecentAnalysis analysis) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -133,12 +204,12 @@ class HistoryView extends GetView<HistoryController> {
           ),
         ],
         border: Border.all(
-          color: _getRiskColor(scan.overallRiskLevel).withOpacity(0.3),
+          color: _getStatusColor(analysis.status).withOpacity(0.3),
           width: 2,
         ),
       ),
       child: InkWell(
-        onTap: () => controller.viewScanDetails(scan),
+        onTap: () => controller.viewAnalysisDetails(analysis),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -157,30 +228,30 @@ class HistoryView extends GetView<HistoryController> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: _getRiskColor(
-                            scan.overallRiskLevel,
+                          color: _getStatusColor(
+                            analysis.status,
                           ).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          scan.scanTypeDisplay,
+                          analysis.statusDisplay,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: _getRiskColor(scan.overallRiskLevel),
+                            color: _getStatusColor(analysis.status),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Icon(
-                        _getScanIcon(scan.scanType),
+                        _getTypeIcon(analysis.analysisType),
                         size: 20,
                         color: const Color(0xFF7C3AED),
                       ),
                     ],
                   ),
                   Text(
-                    scan.formattedDate,
+                    analysis.formattedDate,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
@@ -188,62 +259,82 @@ class HistoryView extends GetView<HistoryController> {
 
               const SizedBox(height: 16),
 
-              // Statistics Row
+              // Main Stats Row
               Row(
                 children: [
                   Expanded(
                     child: _buildStatColumn(
-                      'Messages Scanned',
-                      '${scan.totalMessagesScanned}',
-                      Icons.sms_outlined,
+                      'Confidence',
+                      analysis.confidenceDisplay,
+                      Icons.percent_outlined,
+                      _getConfidenceColor(analysis.confidence),
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildStatColumn(
+                      'Source',
+                      analysis.sourceDisplay,
+                      Icons.source_outlined,
                       Colors.blue,
                     ),
                   ),
                   Expanded(
                     child: _buildStatColumn(
-                      'Fraud Detected',
-                      '${scan.fraudDetected}',
-                      Icons.warning_outlined,
-                      scan.fraudDetected > 0 ? Colors.red : Colors.green,
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildStatColumn(
-                      'Safety Score',
-                      '${scan.safetyScore.toStringAsFixed(0)}%',
-                      Icons.shield_outlined,
-                      _getSafetyScoreColor(scan.safetyScore),
+                      'Type',
+                      analysis.typeDisplay,
+                      Icons.category_outlined,
+                      Colors.green,
                     ),
                   ),
                 ],
               ),
 
-              if (scan.fraudDetected > 0) ...[
+              // Risk Factors Section
+              if (analysis.riskFactors.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: _getStatusColor(analysis.status).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.red.withOpacity(0.3),
+                      color: _getStatusColor(analysis.status).withOpacity(0.3),
                       width: 1,
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.security, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${scan.fraudDetected} fraud${scan.fraudDetected > 1 ? 's' : ''} detected - Tap to view details',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_outlined,
+                            color: _getStatusColor(analysis.status),
+                            size: 16,
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Risk Factors (${analysis.riskFactors.length})',
+                            style: TextStyle(
+                              color: _getStatusColor(analysis.status),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
+                      if (analysis.riskFactors.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          analysis.riskFactors.take(2).join(', '),
+                          style: TextStyle(
+                            color: _getStatusColor(analysis.status),
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -282,82 +373,36 @@ class HistoryView extends GetView<HistoryController> {
     );
   }
 
-  Color _getRiskColor(dynamic riskLevel) {
-    switch (riskLevel.toString()) {
-      case 'FraudRiskLevel.critical':
-        return Colors.red.shade700;
-      case 'FraudRiskLevel.high':
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'FRAUD':
         return Colors.red;
-      case 'FraudRiskLevel.medium':
+      case 'SUSPICIOUS':
         return Colors.orange;
-      case 'FraudRiskLevel.low':
-      default:
+      case 'LEGITIMATE':
         return Colors.green;
-    }
-  }
-
-  Color _getSafetyScoreColor(double score) {
-    if (score >= 90) return Colors.green;
-    if (score >= 75) return Colors.orange;
-    return Colors.red;
-  }
-
-  IconData _getScanIcon(String scanType) {
-    switch (scanType) {
-      case 'manual':
-        return Icons.touch_app;
-      case 'background':
-        return Icons.autorenew;
-      case 'scheduled':
-        return Icons.schedule;
       default:
-        return Icons.scanner;
+        return Colors.grey;
     }
   }
 
-  Widget _buildBottomNavigation() {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Obx(
-        () => BottomNavigationBar(
-          currentIndex: controller.selectedNavIndex.value,
-          onTap: controller.onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF7C3AED),
-          unselectedItemColor: Colors.grey[400],
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
-        ),
-      ),
-    );
+  Color _getConfidenceColor(int confidence) {
+    if (confidence >= 90) return Colors.red;
+    if (confidence >= 70) return Colors.orange;
+    if (confidence >= 50) return Colors.yellow.shade700;
+    return Colors.green;
+  }
+
+  IconData _getTypeIcon(String analysisType) {
+    switch (analysisType.toUpperCase()) {
+      case 'TEXT':
+        return Icons.sms_outlined;
+      case 'IMAGE':
+        return Icons.image_outlined;
+      case 'VOICE':
+        return Icons.mic_outlined;
+      default:
+        return Icons.analytics_outlined;
+    }
   }
 }

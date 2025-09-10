@@ -3,6 +3,7 @@ import '../models/fraud_detection_stats.dart';
 import '../models/network_exception.dart';
 import '../models/sms_message.dart';
 import '../models/fraud_result.dart';
+import '../models/recent_analysis.dart';
 import 'network/base_network_service.dart';
 
 class FraudDetectionService extends GetxService {
@@ -73,6 +74,51 @@ class FraudDetectionService extends GetxService {
     } catch (e) {
       throw ServerException(
         message: 'Unexpected error refreshing statistics: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Get recent fraud analyses for the authenticated user
+  ///
+  /// This endpoint provides a list of recent fraud detection analyses
+  /// performed by the user, including their status, confidence, and metadata.
+  ///
+  /// Returns [RecentAnalysesResponse] with recent analyses and total count
+  /// Throws [NetworkException] on network errors
+  Future<RecentAnalysesResponse> getRecentAnalyses({
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{
+        if (limit != null) 'limit': limit.toString(),
+        if (offset != null) 'offset': offset.toString(),
+      };
+
+      // Make authenticated request to recent analyses endpoint
+      final response = await _networkService.get<Map<String, dynamic>>(
+        '/fraud-detection/stats/recent',
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+        fromJson: (data) => data as Map<String, dynamic>,
+      );
+
+      // Handle successful response
+      if (response.success && response.data != null) {
+        return RecentAnalysesResponse.fromJson(response.data!);
+      }
+
+      // Handle API error response
+      throw ServerException(
+        message: 'Failed to load recent analyses: ${response.message}',
+        statusCode: response.statusCode ?? 500,
+      );
+    } on NetworkException {
+      // Re-throw network exceptions as-is
+      rethrow;
+    } catch (e) {
+      // Handle unexpected errors
+      throw ServerException(
+        message: 'Unexpected error loading recent analyses: ${e.toString()}',
       );
     }
   }

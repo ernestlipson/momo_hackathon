@@ -9,12 +9,33 @@ class SecureStorageService {
   static const String _keyUser = 'user_data';
   static const String _keyDeviceId = 'device_id';
 
-  late final GetStorage _storage;
+  GetStorage? _storage;
+  bool _isInitialized = false;
 
   /// Initialize secure storage
   Future<void> init() async {
+    if (_isInitialized) return;
+
     await GetStorage.init(_box);
     _storage = GetStorage(_box);
+    _isInitialized = true;
+  }
+
+  /// Ensure storage is initialized before use
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await init();
+    }
+  }
+
+  /// Get storage instance (lazy initialization)
+  GetStorage get storage {
+    if (_storage == null || !_isInitialized) {
+      throw Exception(
+        'SecureStorageService not initialized. Call init() first.',
+      );
+    }
+    return _storage!;
   }
 
   /// Encrypt data before storage
@@ -37,72 +58,83 @@ class SecureStorageService {
 
   /// Store authentication token securely
   Future<void> storeAuthToken(String token) async {
+    await _ensureInitialized();
     final encrypted = _encrypt(token);
-    await _storage.write(_keyAuth, encrypted);
+    await storage.write(_keyAuth, encrypted);
   }
 
   /// Retrieve authentication token
   String? getAuthToken() {
-    final encrypted = _storage.read(_keyAuth);
+    if (!_isInitialized) return null;
+
+    final encrypted = storage.read(_keyAuth);
     if (encrypted == null) return null;
 
     try {
       return _decrypt(encrypted);
     } catch (e) {
       // Token corrupted, remove it
-      _storage.remove(_keyAuth);
+      storage.remove(_keyAuth);
       return null;
     }
   }
 
   /// Store refresh token securely
   Future<void> storeRefreshToken(String token) async {
+    await _ensureInitialized();
     final encrypted = _encrypt(token);
-    await _storage.write(_keyRefresh, encrypted);
+    await storage.write(_keyRefresh, encrypted);
   }
 
   /// Retrieve refresh token
   String? getRefreshToken() {
-    final encrypted = _storage.read(_keyRefresh);
+    if (!_isInitialized) return null;
+
+    final encrypted = storage.read(_keyRefresh);
     if (encrypted == null) return null;
 
     try {
       return _decrypt(encrypted);
     } catch (e) {
-      _storage.remove(_keyRefresh);
+      storage.remove(_keyRefresh);
       return null;
     }
   }
 
   /// Store user data
   Future<void> storeUserData(Map<String, dynamic> userData) async {
+    await _ensureInitialized();
     final jsonString = jsonEncode(userData);
     final encrypted = _encrypt(jsonString);
-    await _storage.write(_keyUser, encrypted);
+    await storage.write(_keyUser, encrypted);
   }
 
   /// Retrieve user data
   Map<String, dynamic>? getUserData() {
-    final encrypted = _storage.read(_keyUser);
+    if (!_isInitialized) return null;
+
+    final encrypted = storage.read(_keyUser);
     if (encrypted == null) return null;
 
     try {
       final decrypted = _decrypt(encrypted);
       return jsonDecode(decrypted) as Map<String, dynamic>;
     } catch (e) {
-      _storage.remove(_keyUser);
+      storage.remove(_keyUser);
       return null;
     }
   }
 
   /// Store device ID for fraud detection
   Future<void> storeDeviceId(String deviceId) async {
-    await _storage.write(_keyDeviceId, deviceId);
+    await _ensureInitialized();
+    await storage.write(_keyDeviceId, deviceId);
   }
 
   /// Get device ID
   String? getDeviceId() {
-    return _storage.read(_keyDeviceId);
+    if (!_isInitialized) return null;
+    return storage.read(_keyDeviceId);
   }
 
   /// Check if user is authenticated
@@ -110,42 +142,49 @@ class SecureStorageService {
 
   /// Clear all stored data (logout)
   Future<void> clearAll() async {
-    await _storage.erase();
+    await _ensureInitialized();
+    await storage.erase();
   }
 
   /// Clear only authentication data
   Future<void> clearAuthData() async {
-    await _storage.remove(_keyAuth);
-    await _storage.remove(_keyRefresh);
-    await _storage.remove(_keyUser);
+    await _ensureInitialized();
+    await storage.remove(_keyAuth);
+    await storage.remove(_keyRefresh);
+    await storage.remove(_keyUser);
   }
 
   /// Store any generic secure data
   Future<void> storeSecureData(String key, String data) async {
+    await _ensureInitialized();
     final encrypted = _encrypt(data);
-    await _storage.write(key, encrypted);
+    await storage.write(key, encrypted);
   }
 
   /// Retrieve any generic secure data
   String? getSecureData(String key) {
-    final encrypted = _storage.read(key);
+    if (!_isInitialized) return null;
+
+    final encrypted = storage.read(key);
     if (encrypted == null) return null;
 
     try {
       return _decrypt(encrypted);
     } catch (e) {
-      _storage.remove(key);
+      storage.remove(key);
       return null;
     }
   }
 
   /// Check if a key exists
   bool hasKey(String key) {
-    return _storage.hasData(key);
+    if (!_isInitialized) return false;
+    return storage.hasData(key);
   }
 
   /// Remove specific key
   Future<void> removeKey(String key) async {
-    await _storage.remove(key);
+    await _ensureInitialized();
+    await storage.remove(key);
   }
 }

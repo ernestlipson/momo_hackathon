@@ -18,7 +18,6 @@ class HomeController extends GetxController {
   // Observable variables for home stats (deprecated - will be replaced with fraudStats)
   final totalScan = 1234.obs;
   final amountSaved = 56.78.obs;
-  final selectedNavIndex = 0.obs;
 
   // News articles data
   final newsArticles = <NewsArticle>[].obs;
@@ -181,22 +180,6 @@ class HomeController extends GetxController {
 
   void updateAmountSaved(double newAmount) {
     amountSaved.value = newAmount;
-  }
-
-  void onNavItemTapped(int index) {
-    selectedNavIndex.value = index;
-
-    switch (index) {
-      case 0:
-        // Already on Home
-        break;
-      case 1:
-        Get.toNamed('/history');
-        break;
-      case 2:
-        Get.toNamed('/settings');
-        break;
-    }
   }
 
   void onScanButtonPressed() {
