@@ -3,6 +3,7 @@ import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import '../data/services/network/base_network_service.dart';
 import '../data/services/fraud_detection_service.dart';
 import '../data/services/news_service.dart';
+import '../data/services/api_article_service.dart';
 import '../data/services/auth_service.dart';
 
 /// Service bindings for dependency injection
@@ -22,6 +23,11 @@ class ServiceBindings extends Bindings {
     // Initialize news service for fetching articles
     if (!Get.isRegistered<NewsService>()) {
       Get.put<NewsService>(NewsService(), permanent: true);
+    }
+
+    // Initialize API article service for fetching API articles
+    if (!Get.isRegistered<ApiArticleService>()) {
+      Get.put<ApiArticleService>(ApiArticleService(), permanent: true);
     }
 
     // Initialize auth service for user authentication

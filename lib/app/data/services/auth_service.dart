@@ -28,8 +28,9 @@ class AuthService extends GetxService {
         '/auth/register',
         data: request.toJson(),
       );
+      Get.log('🔵 Register response: ${response?.data}');
       if (response != null &&
-          response.statusCode == 200 &&
+          response.statusCode == 201 &&
           response.data != null) {
         final signupResponse = SignupResponse.fromJson(response.data);
         await storeData(

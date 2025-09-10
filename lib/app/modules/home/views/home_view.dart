@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/home_controller.dart';
 import 'package:momo_hackathon/app/data/models/news_article.dart';
+import 'package:momo_hackathon/app/data/models/api_article.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -103,20 +104,20 @@ class HomeView extends GetView<HomeController> {
                       ],
                     ),
 
-                    // News Articles List
+                    // Articles List (Updated to use API articles)
                     Obx(() {
                       if (controller.isLoadingNews.value &&
-                          controller.newsArticles.isEmpty) {
+                          controller.apiArticles.isEmpty) {
                         return _buildLoadingState();
-                      } else if (controller.newsArticles.isEmpty &&
+                      } else if (controller.apiArticles.isEmpty &&
                           controller.newsError.value != null) {
                         return _buildErrorState();
-                      } else if (controller.newsArticles.isEmpty) {
+                      } else if (controller.apiArticles.isEmpty) {
                         return _buildEmptyState();
                       } else {
                         return Column(
-                          children: controller.newsArticles
-                              .map((article) => _buildNewsArticleCard(article))
+                          children: controller.apiArticles
+                              .map((article) => _buildApiArticleCard(article))
                               .toList(),
                         );
                       }
@@ -784,6 +785,172 @@ class HomeView extends GetView<HomeController> {
 
   void _openArticleDetail(NewsArticle article) {
     Get.toNamed('/news-detail', arguments: article);
+  }
+
+  void _openApiArticleDetail(ApiArticle article) {
+    // Convert API article to NewsArticle format for detail view
+    final newsArticle = NewsArticle(
+      title: article.title,
+      description: article.excerpt,
+      url: '', // No external URL for API articles
+      urlToImage: article.coverImage,
+      publishedAt: article.createdAt,
+      source: Source(name: 'Article'), // Static source
+      content: article.content, // Include the full content
+    );
+    Get.toNamed('/news-detail', arguments: newsArticle);
+  }
+
+  /// Build API Article Card (NEW)
+  Widget _buildApiArticleCard(ApiArticle article) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _openApiArticleDetail(article),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Article Image (Left side)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 120,
+                  height: 90,
+                  color: const Color(0xFF7C3AED).withOpacity(0.1),
+                  child: article.coverImage != null && article.coverImage!.isNotEmpty
+                      ? Image.network(
+                          article.coverImage!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildApiImagePlaceholder();
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return _buildApiImagePlaceholder();
+                          },
+                        )
+                      : _buildApiImagePlaceholder(),
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Article Content (Right side)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Date
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Article',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF7C3AED),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            article.formattedDate,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Article Title
+                    Text(
+                      article.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // Article Excerpt
+                    Text(
+                      article.excerpt,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApiImagePlaceholder() {
+    return Container(
+      width: 120,
+      height: 90,
+      color: const Color(0xFF7C3AED).withOpacity(0.1),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.article, size: 24, color: Color(0xFF7C3AED)),
+          SizedBox(height: 4),
+          Text(
+            'Article',
+            style: TextStyle(
+              color: Color(0xFF7C3AED),
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCompactImagePlaceholder() {

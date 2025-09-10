@@ -64,6 +64,11 @@ class AppPages {
       binding: NewsDetailBinding(),
     ),
     GetPage(
+      name: _Paths.ARTICLE_DETAIL,
+      page: () => const NewsDetailView(), // Reusing news detail for now
+      binding: NewsDetailBinding(),
+    ),
+    GetPage(
       name: _Paths.DETAILED_STATS,
       page: () => const DetailedStatsView(),
       binding: DetailedStatsBinding(),

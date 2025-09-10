@@ -50,7 +50,11 @@ class LocalAuthDbService {
 
   // Retrieve user data
   static Map<String, dynamic>? getUserData() {
-    return _box.get(_keyUserData);
+    final data = _box.get(_keyUserData);
+    if (data != null && data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return null;
   }
 
   // Clear all auth data

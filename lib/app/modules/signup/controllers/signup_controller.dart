@@ -197,6 +197,7 @@ class SignupController extends GetxController {
         location: selectedLocation.value!.code,
       );
       final response = await _authService.register(signupRequest);
+      Get.log('🔵 Signup response: $response');
       if (response != null) {
         await LocalAuthDbService.setLoggedIn(true);
         Get.offAllNamed(

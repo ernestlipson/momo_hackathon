@@ -1,14 +1,16 @@
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
-import 'package:momo_hackathon/app/data/models/news_article.dart';
+import 'package:momo_hackathon/app/data/models/api_article.dart';
 import 'package:momo_hackathon/app/data/models/fraud_detection_stats.dart';
 import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import 'package:momo_hackathon/app/data/services/news_service.dart';
+import 'package:momo_hackathon/app/data/services/api_article_service.dart';
 import 'package:momo_hackathon/app/data/services/fraud_detection_service.dart';
 
 class HomeController extends GetxController {
   // Services
   final NewsService _newsService = Get.find<NewsService>();
+  final ApiArticleService _apiArticleService = Get.find<ApiArticleService>();
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
 
   // Observable variables for fraud detection stats
@@ -20,8 +22,11 @@ class HomeController extends GetxController {
   final totalScan = 1234.obs;
   final amountSaved = 56.78.obs;
 
-  // News articles data
-  final newsArticles = <NewsArticle>[].obs;
+  // News articles data (commented out - replaced with API articles)
+  // final newsArticles = <NewsArticle>[].obs;
+  
+  // API Articles data
+  final apiArticles = <ApiArticle>[].obs;
   final isLoadingNews = false.obs;
   final newsError = RxnString();
 
@@ -70,8 +75,8 @@ class HomeController extends GetxController {
 
         Get.log('⚠️ No user data found in storage');
       }
-    } catch (e) {
-      Get.log('❌ Error loading user profile: $e');
+    } catch (e, s) {
+      Get.log('❌ Error loading user profile: $e $s');
 
       // Fallback values
       userName.value = 'User';
@@ -85,8 +90,8 @@ class HomeController extends GetxController {
   void loadHomeData() {
     // Load fraud detection statistics
     loadFraudStats();
-    // Load news articles
-    loadNewsArticles();
+    // Load API articles (replaced news articles)
+    loadApiArticles();
   }
 
   /// Load fraud detection statistics
@@ -179,11 +184,60 @@ class HomeController extends GetxController {
     }
   }
 
-  /// Refresh both stats and news
+  /// Refresh both stats and articles
   Future<void> refreshHomeData() async {
     await Future.wait([refreshFraudStats(), refreshNews()]);
   }
 
+  /// Load API articles
+  Future<void> loadApiArticles() async {
+    try {
+      isLoadingNews.value = true;
+      newsError.value = null;
+
+      final articles = await _apiArticleService.fetchArticles();
+
+      if (articles.isNotEmpty) {
+        apiArticles.assignAll(articles);
+        Get.log('📰 Loaded ${apiArticles.length} API articles');
+      } else {
+        Get.log('⚠️ No API articles found');
+      }
+    } catch (e) {
+      Get.log('❌ Error loading API articles: $e');
+      newsError.value = e.toString();
+
+      // Show user-friendly error message
+      Get.snackbar(
+        'Articles Loading Error',
+        'Unable to load latest articles. Please try again.',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      isLoadingNews.value = false;
+    }
+  }
+
+  /// Refresh API articles
+  Future<void> refreshNews() async {
+    await loadApiArticles();
+
+    if (apiArticles.isNotEmpty && newsError.value == null) {
+      Get.snackbar(
+        'Articles Updated',
+        'Latest articles loaded successfully',
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.green.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+      );
+    }
+  }
+
+  /* COMMENTED OUT - OLD NEWS IMPLEMENTATION
   /// Load news articles from News API
   Future<void> loadNewsArticles() async {
     try {
@@ -219,22 +273,7 @@ class HomeController extends GetxController {
       isLoadingNews.value = false;
     }
   }
-
-  /// Refresh news articles
-  Future<void> refreshNews() async {
-    await loadNewsArticles();
-
-    if (newsArticles.isNotEmpty && newsError.value == null) {
-      Get.snackbar(
-        'News Updated',
-        'Latest articles loaded successfully',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.withOpacity(0.8),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 2),
-      );
-    }
-  }
+  */
 
   void updateTotalScan(int newCount) {
     totalScan.value = newCount;
