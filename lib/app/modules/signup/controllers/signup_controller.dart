@@ -129,6 +129,7 @@ class SignupController extends GetxController {
   /// Build location selection bottom sheet
   Widget _buildLocationBottomSheet() {
     return Container(
+      height: 500,
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -153,6 +154,7 @@ class SignupController extends GetxController {
           // Location list
           Flexible(
             child: ListView.separated(
+              physics: BouncingScrollPhysics(),
               shrinkWrap: true,
               itemCount: GhanaRegion.all.length,
               separatorBuilder: (context, index) => const Divider(),
@@ -160,7 +162,7 @@ class SignupController extends GetxController {
                 final region = GhanaRegion.all[index];
                 return ListTile(
                   title: Text(region.displayName),
-                  subtitle: Text(region.code),
+                  // subtitle: Text(region.code),
                   trailing: Obx(
                     () => selectedLocation.value == region
                         ? const Icon(Icons.check, color: Color(0xFF7C3AED))
@@ -200,32 +202,31 @@ class SignupController extends GetxController {
       // Call registration API
       final response = await _authService.register(signupRequest);
 
-      // Show success message
-      Get.snackbar(
-        'Registration Successful',
-        'Welcome, ${response.user.firstName}! Your account has been created.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.green.withOpacity(0.8),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
+      // Navigate to success page with user data
+      Get.offAllNamed(
+        '/signup-success',
+        arguments: {
+          'firstName': response.user.firstName,
+          'lastName': response.user.lastName,
+          'email': response.user.email,
+          'userId': response.userId,
+        },
       );
-
-      // Navigate to main app
-      Get.offAllNamed('/');
     } on ValidationException catch (e) {
       _handleValidationError(e);
     } on NetworkException catch (e) {
       _handleNetworkError(e);
     } catch (e) {
-      Get.snackbar(
-        'Registration Failed',
-        'An unexpected error occurred. Please try again.',
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.red.withOpacity(0.8),
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-      print('❌ Unexpected signup error: $e');
+      // Get.snackbar(
+      //   'Registration Failed',
+      //   'An unexpected error occurred. Please try again. $e',
+      //   snackPosition: SnackPosition.TOP,
+      //   backgroundColor: Colors.red.withOpacity(0.8),
+      //   colorText: Colors.white,
+      //   duration: const Duration(seconds: 3),
+      // );
+      // Get.log("Error Occured: $e");
+      // print('❌ Unexpected signup error: $e');
     } finally {
       isLoading.value = false;
     }
@@ -266,6 +267,8 @@ class SignupController extends GetxController {
     } else if (e is AuthenticationException) {
       message = 'Registration failed. Please check your details and try again.';
     }
+
+    Get.log("Network Error Occured: $e ${e.statusCode} ${e.message}");
 
     Get.snackbar(
       'Registration Failed',

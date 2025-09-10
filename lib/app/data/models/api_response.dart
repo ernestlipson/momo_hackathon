@@ -47,15 +47,21 @@ class ApiResponse<T> {
   /// Convert from JSON response
   factory ApiResponse.fromJson(
     Map<String, dynamic> json,
-    T Function(dynamic)? fromJsonT,
-  ) {
+    T Function(dynamic)? fromJsonT, {
+    int? statusCode,
+  }) {
+    // Determine success based on explicit success field or HTTP status code
+    bool isSuccess =
+        json['success'] as bool? ??
+        (statusCode != null && statusCode >= 200 && statusCode < 300);
+
     return ApiResponse<T>(
-      success: json['success'] ?? false,
+      success: isSuccess,
       message: json['message'] ?? '',
       data: fromJsonT != null && json['data'] != null
           ? fromJsonT(json['data'])
           : json['data'],
-      statusCode: json['statusCode'],
+      statusCode: statusCode ?? json['statusCode'],
       errorCode: json['errorCode'],
     );
   }

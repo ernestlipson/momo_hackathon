@@ -19,6 +19,8 @@ import '../modules/login/views/login_view.dart';
 import '../modules/signup/bindings/signup_binding.dart';
 import '../modules/signup/views/signup_step1_view.dart';
 import '../modules/signup/views/signup_step2_view.dart';
+import '../modules/signup_success/bindings/signup_success_binding.dart';
+import '../modules/signup_success/views/signup_success_view.dart';
 
 part 'app_routes.dart';
 
@@ -77,6 +79,11 @@ class AppPages {
       name: _Paths.SIGNUP_STEP2,
       page: () => const SignupStep2View(),
       binding: SignupBinding(),
+    ),
+    GetPage(
+      name: _Paths.SIGNUP_SUCCESS,
+      page: () => const SignupSuccessView(),
+      binding: SignupSuccessBinding(),
     ),
   ];
 }

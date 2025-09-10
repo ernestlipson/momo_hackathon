@@ -23,30 +23,13 @@ class HomeView extends GetView<HomeController> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.shield_outlined,
-                                size: 20,
-                                color: Color(0xFF7C3AED),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Detection Stats',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
+                        const Text(
+                          'Detection Stats',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
                         ),
 
                         Row(
@@ -119,7 +102,6 @@ class HomeView extends GetView<HomeController> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
 
                     // News Articles List
                     Obx(() {
@@ -171,7 +153,7 @@ class HomeView extends GetView<HomeController> {
       children: [
         // Profile Avatar
         GestureDetector(
-          onTap: () => _openProfileSettings(),
+          onTap: () => _showProfileOptions(),
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -327,17 +309,91 @@ class HomeView extends GetView<HomeController> {
     return 'U';
   }
 
-  /// Open profile settings (placeholder)
-  void _openProfileSettings() {
-    Get.snackbar(
-      'Profile Settings',
-      'Profile management feature coming soon!',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: const Color(0xFF7C3AED).withOpacity(0.9),
-      colorText: Colors.white,
-      duration: const Duration(seconds: 2),
-      margin: const EdgeInsets.all(16),
-      borderRadius: 8,
+  /// Show profile options
+  void _showProfileOptions() {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Profile Options',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // User Info
+            Obx(
+              () => ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF7C3AED).withOpacity(0.1),
+                  child: Text(
+                    _getInitials(controller.userName.value),
+                    style: const TextStyle(
+                      color: Color(0xFF7C3AED),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Text(controller.userName.value),
+                subtitle: Text(controller.userEmail.value),
+              ),
+            ),
+
+            const Divider(),
+
+            // Logout Option
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: const Text('Sign out of your account'),
+              onTap: () {
+                Get.back(); // Close bottom sheet
+                _confirmLogout();
+              },
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Confirm logout action
+  void _confirmLogout() {
+    Get.defaultDialog(
+      title: 'Logout',
+      middleText: 'Are you sure you want to logout?',
+      textConfirm: 'Logout',
+      textCancel: 'Cancel',
+      confirmTextColor: Colors.white,
+      buttonColor: Colors.red,
+      onConfirm: () {
+        Get.back(); // Close dialog
+        controller.logout();
+      },
     );
   }
 

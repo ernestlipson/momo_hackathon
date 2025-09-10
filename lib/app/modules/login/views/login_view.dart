@@ -103,7 +103,8 @@ class LoginView extends GetView<LoginController> {
             validator: controller.validateEmail,
             decoration: InputDecoration(
               hintText: 'Enter your email address',
-              prefixIcon: const Icon(Icons.email_outlined),
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              prefixIcon: Icon(Icons.email_outlined, color: Colors.grey[400]),
               suffixIcon: controller.isEmailValid.value
                   ? const Icon(Icons.check_circle, color: Colors.green)
                   : null,
@@ -157,7 +158,8 @@ class LoginView extends GetView<LoginController> {
             onFieldSubmitted: (_) => controller.login(),
             decoration: InputDecoration(
               hintText: 'Enter your password',
-              prefixIcon: const Icon(Icons.lock_outlined),
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              prefixIcon: Icon(Icons.lock_outlined, color: Colors.grey[400]),
               suffixIcon: IconButton(
                 onPressed: controller.togglePasswordVisibility,
                 icon: Icon(

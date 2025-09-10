@@ -18,7 +18,7 @@ class BaseNetworkService extends getx.GetxService {
 
   // Request queue for offline scenarios
   final List<QueuedRequest> _requestQueue = [];
-  bool _isOnline = true;
+  final bool _isOnline = true;
 
   @override
   Future<void> onInit() async {
@@ -28,7 +28,6 @@ class BaseNetworkService extends getx.GetxService {
 
   /// Initialize the network service
   Future<void> _initializeService() async {
-    // Initialize secure storage
     _storageService = SecureStorageService();
     await _storageService.init();
 
@@ -41,22 +40,17 @@ class BaseNetworkService extends getx.GetxService {
         sendTimeout: sendTimeout,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'MoMoFraudDetection/1.0.0',
+          'accept': 'application/json',
         },
       ),
     );
 
     // Add interceptors
     _addInterceptors();
-
-    // Monitor network connectivity
-    _monitorConnectivity();
   }
 
   /// Add security and logging interceptors
   void _addInterceptors() {
-    // Request interceptor for authentication and security
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -100,21 +94,6 @@ class BaseNetworkService extends getx.GetxService {
         options.headers['Authorization'] = 'Bearer $token';
       }
 
-      // Add device fingerprinting for fraud detection
-      final deviceId = _storageService.getDeviceId();
-      if (deviceId != null) {
-        options.headers['X-Device-ID'] = deviceId;
-      }
-
-      // Add request timestamp for security
-      options.headers['X-Request-Time'] = DateTime.now().millisecondsSinceEpoch
-          .toString();
-
-      // Add request signature (simplified for demo)
-      options.headers['X-Request-Signature'] = _generateRequestSignature(
-        options,
-      );
-
       handler.next(options);
     } catch (e) {
       handler.reject(
@@ -150,23 +129,7 @@ class BaseNetworkService extends getx.GetxService {
         networkException.errorCode == 'TOKEN_EXPIRED') {
       _handleTokenExpiration();
     }
-
-    // Queue request if offline
-    if (networkException is ConnectionException && !_isOnline) {
-      _queueRequest(error.requestOptions);
-    }
-
     handler.reject(error);
-  }
-
-  /// Generate request signature for security
-  String _generateRequestSignature(RequestOptions options) {
-    // Simplified signature generation
-    // In production, use proper HMAC with secret key
-    final timestamp = options.headers['X-Request-Time'];
-    final method = options.method;
-    final path = options.path;
-    return '${method}_${path}_$timestamp'.hashCode.toString();
   }
 
   /// Log request metrics for fraud detection
@@ -218,40 +181,11 @@ class BaseNetworkService extends getx.GetxService {
 
       if (response.statusCode == 200) {
         final data = response.data;
-        await _storageService.storeAuthToken(data['accessToken']);
+        await _storageService.storeAuthToken(data['token']);
         await _storageService.storeRefreshToken(data['refreshToken']);
       }
     } catch (e) {
       throw AuthenticationException.tokenExpired();
-    }
-  }
-
-  /// Monitor network connectivity
-  void _monitorConnectivity() {
-    // Simple connectivity check
-    // In production, use connectivity_plus package
-    _isOnline = true;
-  }
-
-  /// Queue request for when connection is restored
-  void _queueRequest(RequestOptions options) {
-    _requestQueue.add(
-      QueuedRequest(options: options, timestamp: DateTime.now()),
-    );
-  }
-
-  /// Process queued requests when online
-  Future<void> _processQueuedRequests() async {
-    final requestsToProcess = List<QueuedRequest>.from(_requestQueue);
-    _requestQueue.clear();
-
-    for (final queuedRequest in requestsToProcess) {
-      try {
-        await _dio.fetch(queuedRequest.options);
-      } catch (e) {
-        // Re-queue if still failing
-        _requestQueue.add(queuedRequest);
-      }
     }
   }
 
@@ -264,7 +198,11 @@ class BaseNetworkService extends getx.GetxService {
     try {
       final response = await _dio.get(path, queryParameters: queryParameters);
 
-      return ApiResponse.fromJson(response.data, fromJson);
+      return ApiResponse.fromJson(
+        response.data,
+        fromJson,
+        statusCode: response.statusCode,
+      );
     } on DioException catch (e) {
       final networkException = NetworkExceptionHandler.handleDioError(e);
       return ApiResponse.error(
@@ -289,7 +227,11 @@ class BaseNetworkService extends getx.GetxService {
         queryParameters: queryParameters,
       );
 
-      return ApiResponse.fromJson(response.data, fromJson);
+      return ApiResponse.fromJson(
+        response.data,
+        fromJson,
+        statusCode: response.statusCode,
+      );
     } on DioException catch (e) {
       final networkException = NetworkExceptionHandler.handleDioError(e);
       return ApiResponse.error(
@@ -314,7 +256,11 @@ class BaseNetworkService extends getx.GetxService {
         queryParameters: queryParameters,
       );
 
-      return ApiResponse.fromJson(response.data, fromJson);
+      return ApiResponse.fromJson(
+        response.data,
+        fromJson,
+        statusCode: response.statusCode,
+      );
     } on DioException catch (e) {
       final networkException = NetworkExceptionHandler.handleDioError(e);
       return ApiResponse.error(
@@ -337,7 +283,11 @@ class BaseNetworkService extends getx.GetxService {
         queryParameters: queryParameters,
       );
 
-      return ApiResponse.fromJson(response.data, fromJson);
+      return ApiResponse.fromJson(
+        response.data,
+        fromJson,
+        statusCode: response.statusCode,
+      );
     } on DioException catch (e) {
       final networkException = NetworkExceptionHandler.handleDioError(e);
       return ApiResponse.error(
@@ -378,7 +328,11 @@ class BaseNetworkService extends getx.GetxService {
         onSendProgress: onProgress,
       );
 
-      return ApiResponse.fromJson(response.data, fromJson);
+      return ApiResponse.fromJson(
+        response.data,
+        fromJson,
+        statusCode: response.statusCode,
+      );
     } on DioException catch (e) {
       final networkException = NetworkExceptionHandler.handleDioError(e);
       return ApiResponse.error(

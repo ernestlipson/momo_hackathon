@@ -52,8 +52,12 @@ class LoginController extends GetxController {
     return email.isNotEmpty && RegExp(emailPattern).hasMatch(email);
   }
 
-  /// Check if form is valid
-  bool get isFormValid => isEmailValid.value && isPasswordValid.value;
+  /// Check if form is valid and both fields are filled
+  bool get isFormValid =>
+      isEmailValid.value &&
+      isPasswordValid.value &&
+      emailController.text.isNotEmpty &&
+      passwordController.text.isNotEmpty;
 
   /// Toggle password visibility
   void togglePasswordVisibility() {
@@ -63,18 +67,6 @@ class LoginController extends GetxController {
   /// Navigate to signup
   void goToSignup() {
     Get.toNamed('/signup');
-  }
-
-  /// Navigate to forgot password (placeholder)
-  void goToForgotPassword() {
-    Get.snackbar(
-      'Forgot Password',
-      'Password reset feature coming soon!',
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: const Color(0xFF7C3AED).withOpacity(0.8),
-      colorText: Colors.white,
-      duration: const Duration(seconds: 2),
-    );
   }
 
   /// Perform login
@@ -114,6 +106,7 @@ class LoginController extends GetxController {
     } on NetworkException catch (e) {
       _handleNetworkError(e);
     } catch (e) {
+      Get.log('Login error: $e');
       Get.snackbar(
         'Login Failed',
         'An unexpected error occurred. Please try again.',

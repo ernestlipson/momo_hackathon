@@ -91,12 +91,12 @@ class SignupStep2View extends GetView<SignupController> {
         Container(
           width: 30,
           height: 30,
-          decoration: const BoxDecoration(
-            color: Colors.green,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
             shape: BoxShape.circle,
           ),
           child: const Center(
-            child: Icon(Icons.check, color: Colors.white, size: 16),
+            child: Icon(Icons.check, color: Colors.black, size: 16),
           ),
         ),
 
@@ -153,7 +153,8 @@ class SignupStep2View extends GetView<SignupController> {
             validator: controller.validateFirstName,
             decoration: InputDecoration(
               hintText: 'John',
-              prefixIcon: const Icon(Icons.person_outlined),
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              prefixIcon: Icon(Icons.person_outlined, color: Colors.grey[400]),
               suffixIcon: controller.isFirstNameValid.value
                   ? const Icon(Icons.check_circle, color: Colors.green)
                   : null,
@@ -206,7 +207,8 @@ class SignupStep2View extends GetView<SignupController> {
             validator: controller.validateLastName,
             decoration: InputDecoration(
               hintText: 'Doe',
-              prefixIcon: const Icon(Icons.person_outlined),
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              prefixIcon: Icon(Icons.person_outlined, color: Colors.grey[400]),
               suffixIcon: controller.isLastNameValid.value
                   ? const Icon(Icons.check_circle, color: Colors.green)
                   : null,
@@ -265,7 +267,7 @@ class SignupStep2View extends GetView<SignupController> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.location_on_outlined, color: Colors.grey[600]),
+                  Icon(Icons.location_on_outlined, color: Colors.grey[400]),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -275,7 +277,7 @@ class SignupStep2View extends GetView<SignupController> {
                         fontSize: 16,
                         color: controller.selectedLocation.value != null
                             ? Colors.black87
-                            : Colors.grey[600],
+                            : Colors.grey[400],
                       ),
                     ),
                   ),

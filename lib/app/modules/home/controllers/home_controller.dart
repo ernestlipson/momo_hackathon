@@ -4,11 +4,14 @@ import 'package:momo_hackathon/app/data/models/news_article.dart';
 import 'package:momo_hackathon/app/data/models/fraud_detection_stats.dart';
 import 'package:momo_hackathon/app/data/services/news_service.dart';
 import 'package:momo_hackathon/app/data/services/fraud_detection_service.dart';
+import 'package:momo_hackathon/app/data/services/storage/secure_storage_service.dart';
+import 'package:momo_hackathon/app/modules/auth/controllers/auth_controller.dart';
 
 class HomeController extends GetxController {
   // Services
   final NewsService _newsService = Get.find<NewsService>();
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
+  final SecureStorageService _storageService = Get.find<SecureStorageService>();
 
   // Observable variables for fraud detection stats
   final fraudStats = FraudDetectionStats.empty().obs;
@@ -24,18 +27,58 @@ class HomeController extends GetxController {
   final isLoadingNews = false.obs;
   final newsError = RxnString();
 
-  // User profile data (mock data for demo)
-  final userName = 'John Kwame Asante'.obs;
-  final userEmail = 'john.asante@gmail.com'.obs;
-  final userAvatarUrl =
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
-          .obs;
-  final isLoadingProfile = false.obs;
+  // User profile data (loaded from secure storage)
+  final userName = 'Loading...'.obs;
+  final userEmail = 'Loading...'.obs;
+  final userAvatarUrl = ''.obs;
+  final isLoadingProfile = true.obs;
 
   @override
   void onInit() {
     super.onInit();
+    loadUserProfile();
     loadHomeData();
+  }
+
+  /// Load user profile data from secure storage
+  Future<void> loadUserProfile() async {
+    try {
+      isLoadingProfile.value = true;
+
+      // Get user data from secure storage
+      final userData = _storageService.getUserData();
+
+      if (userData != null) {
+        // Extract user information
+        final firstName = userData['firstName'] as String? ?? '';
+        final lastName = userData['lastName'] as String? ?? '';
+        final email = userData['email'] as String? ?? '';
+        final avatar = userData['avatar'] as String? ?? '';
+
+        // Update observables
+        userName.value = '$firstName $lastName'.trim();
+        userEmail.value = email;
+        userAvatarUrl.value = avatar;
+
+        print('✅ User profile loaded: ${userName.value} (${userEmail.value})');
+      } else {
+        // Fallback if no user data found
+        userName.value = 'User';
+        userEmail.value = 'user@example.com';
+        userAvatarUrl.value = '';
+
+        print('⚠️ No user data found in storage');
+      }
+    } catch (e) {
+      print('❌ Error loading user profile: $e');
+
+      // Fallback values
+      userName.value = 'User';
+      userEmail.value = 'user@example.com';
+      userAvatarUrl.value = '';
+    } finally {
+      isLoadingProfile.value = false;
+    }
   }
 
   void loadHomeData() {
@@ -185,5 +228,18 @@ class HomeController extends GetxController {
   void onScanButtonPressed() {
     // Navigate to SMS scanner
     Get.toNamed('/sms-scanner');
+  }
+
+  /// Logout user (delegate to AuthController)
+  Future<void> logout() async {
+    try {
+      final authController = Get.find<AuthController>();
+      await authController.logout();
+    } catch (e) {
+      print('❌ Error accessing AuthController for logout: $e');
+      // Fallback logout by clearing storage directly
+      await _storageService.clearAuthData();
+      Get.offAllNamed('/login');
+    }
   }
 }
