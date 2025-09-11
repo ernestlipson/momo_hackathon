@@ -75,16 +75,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
                 ],
               ),
             ),
-            PopupMenuItem(
-              onTap: controller.toggleBackgroundMonitoring,
-              child: const Row(
-                children: [
-                  Icon(Icons.notifications, size: 20),
-                  SizedBox(width: 8),
-                  Text('Toggle Monitoring'),
-                ],
-              ),
-            ),
           ],
         ),
       ],
@@ -106,54 +96,94 @@ class SmsScannerView extends GetView<SmsScannerController> {
                 : Colors.red.withOpacity(0.3),
           ),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(
-              controller.hasPermission.value
-                  ? Icons.check_circle
-                  : Icons.warning,
-              color: controller.hasPermission.value ? Colors.green : Colors.red,
-              size: 24,
+            Row(
+              children: [
+                Icon(
+                  controller.hasPermission.value
+                      ? Icons.check_circle
+                      : Icons.warning,
+                  color: controller.hasPermission.value ? Colors.green : Colors.red,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        controller.hasPermission.value
+                            ? 'SMS Permission Granted'
+                            : 'SMS Permission Required',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: controller.hasPermission.value
+                              ? Colors.green[700]
+                              : Colors.red[700],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        controller.hasPermission.value
+                            ? 'Fraud detection is active'
+                            : 'Grant permission to enable fraud detection',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!controller.hasPermission.value)
+                  ElevatedButton(
+                    onPressed: controller.requestPermissions,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: const Text('Grant', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Background monitoring status
+            if (controller.hasPermission.value) ...[
+              const SizedBox(height: 12),
+              Row(
                 children: [
-                  Text(
-                    controller.hasPermission.value
-                        ? 'SMS Permission Granted'
-                        : 'SMS Permission Required',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: controller.hasPermission.value
-                          ? Colors.green[700]
-                          : Colors.red[700],
+                  Icon(
+                    controller.backgroundMonitoringEnabled.value
+                        ? Icons.monitor_outlined
+                        : Icons.monitor_outlined,
+                    color: controller.backgroundMonitoringEnabled.value 
+                        ? Colors.blue : Colors.grey,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      controller.backgroundMonitoringEnabled.value
+                          ? 'Background monitoring active'
+                          : 'Background monitoring disabled',
+                      style: TextStyle(
+                        fontSize: 12, 
+                        color: controller.backgroundMonitoringEnabled.value
+                            ? Colors.blue[700]
+                            : Colors.grey[600],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    controller.hasPermission.value
-                        ? 'Fraud detection is active'
-                        : 'Grant permission to enable fraud detection',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  Switch(
+                    value: controller.backgroundMonitoringEnabled.value,
+                    onChanged: (_) => controller.toggleBackgroundMonitoring(),
+                    activeColor: const Color(0xFF7C3AED),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ],
               ),
-            ),
-            if (!controller.hasPermission.value)
-              ElevatedButton(
-                onPressed: controller.requestPermissions,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                ),
-                child: const Text('Grant', style: TextStyle(fontSize: 12)),
-              ),
+            ],
           ],
         ),
       ),
@@ -263,6 +293,11 @@ class SmsScannerView extends GetView<SmsScannerController> {
                       Text(
                         'Last Scan: ${controller.lastScanTimeFormatted}',
                         style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Analysis: API + Local fallback',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                       const SizedBox(height: 8),
                       if (controller.isScanning.value ||

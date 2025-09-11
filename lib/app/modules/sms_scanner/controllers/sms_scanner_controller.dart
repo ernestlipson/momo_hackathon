@@ -2,18 +2,24 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
-// import 'package:sms_advanced/sms_advanced.dart'; // Temporarily disabled
+import 'package:sms_advanced/sms_advanced.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/sms_message.dart';
 import '../../../data/models/fraud_result.dart';
 import '../../../data/services/fraud_detection_service.dart';
+import '../../../data/services/background_sms_service.dart';
 
 class SmsScannerController extends GetxController {
   // Services
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
+  final BackgroundSmsService _backgroundService = Get.find<BackgroundSmsService>();
   final GetStorage _storage = GetStorage();
+  final SmsQuery _smsQuery = SmsQuery();
+
+  // SMS monitoring subscription
+  StreamSubscription<SmsMessage>? _smsSubscription;
 
   // Observables
   final isScanning = false.obs;
@@ -22,6 +28,7 @@ class SmsScannerController extends GetxController {
   final fraudResults = <FraudResult>[].obs;
   final isAnalyzing = false.obs;
   final selectedNavIndex = 0.obs;
+  final backgroundMonitoringEnabled = false.obs;
 
   // Statistics
   final totalScanned = 0.obs;
@@ -42,11 +49,12 @@ class SmsScannerController extends GetxController {
     if (hasPermission.value) {
       _startBackgroundMonitoring();
     }
+    _checkPendingFraudAlerts();
   }
 
   @override
   void onClose() {
-    // _smsSubscription?.cancel(); // Temporarily disabled
+    _smsSubscription?.cancel();
     super.onClose();
   }
 
@@ -93,33 +101,57 @@ class SmsScannerController extends GetxController {
   void _startBackgroundMonitoring() {
     if (!hasPermission.value) return;
 
-    // Temporarily disabled - will implement with working SMS library
-    print('📱 Background SMS monitoring ready (demo mode)');
+    try {
+      // Start background service
+      _backgroundService.startBackgroundMonitoring();
+      backgroundMonitoringEnabled.value = _backgroundService.isRunning.value;
 
-    // For demo, create some sample data
-    _createSampleData();
+      print('📱 Background SMS monitoring started');
+      
+      // For demo, create some sample data if no real messages
+      Timer(const Duration(seconds: 2), () {
+        if (scannedMessages.isEmpty) {
+          _createSampleData();
+        }
+      });
+    } catch (e) {
+      print('Error starting SMS monitoring: $e');
+      // Fall back to demo mode
+      _createSampleData();
+    }
   }
 
-  /// Handle incoming SMS messages (disabled in demo mode)
-  // void _handleIncomingSms(SmsMessage message) async {
-  //   // Only process mobile money transactions
-  //   if (!message.isMobileMoneyTransaction) return;
-  //
-  //   print('💰 Mobile money SMS detected: ${message.sender}');
-  //
-  //   // Add to scanned messages
-  //   scannedMessages.insert(0, message);
-  //   totalScanned.value++;
-  //
-  //   // Analyze for fraud
-  //   await _analyzeMessage(message);
-  //
-  //   // Save to storage
-  //   _saveToStorage();
-  //
-  //   // Update last scan time
-  //   lastScanTime.value = DateTime.now();
-  // }
+  /// Convert sms_advanced SmsMessage to our SmsMessage model
+  SmsMessage _convertToOurSmsMessage(dynamic smsMessage) {
+    return SmsMessage(
+      id: smsMessage.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      sender: smsMessage.sender ?? 'Unknown',
+      body: smsMessage.body ?? '',
+      timestamp: smsMessage.date ?? DateTime.now(),
+      address: smsMessage.address,
+    );
+  }
+
+  /// Handle incoming SMS messages
+  void _handleIncomingSms(SmsMessage message) async {
+    // Only process mobile money transactions
+    if (!message.isMobileMoneyTransaction) return;
+
+    print('💰 Mobile money SMS detected: ${message.sender}');
+
+    // Add to scanned messages
+    scannedMessages.insert(0, message);
+    totalScanned.value++;
+
+    // Analyze for fraud
+    await _analyzeMessage(message);
+
+    // Save to storage
+    _saveToStorage();
+
+    // Update last scan time
+    lastScanTime.value = DateTime.now();
+  }
 
   /// Manually scan recent SMS messages
   Future<void> scanRecentMessages() async {
@@ -131,17 +163,34 @@ class SmsScannerController extends GetxController {
     isScanning.value = true;
 
     try {
-      // For demo purposes, create sample mobile money SMS messages
-      final sampleMessages = _createSampleMessages();
+      // Get recent SMS messages using sms_advanced
+      List<SmsMessage> messages = [];
+      
+      try {
+        final List<SmsMessage> queriedMessages = await _smsQuery.querySms(
+          kinds: [SmsQueryKind.inbox],
+          count: 50, // Get last 50 messages
+        );
 
-      print('📱 Found ${sampleMessages.length} mobile money messages (demo)');
+        // Convert and filter mobile money messages
+        messages = queriedMessages
+            .map((sms) => _convertToOurSmsMessage(sms))
+            .where((msg) => msg.isMobileMoneyTransaction)
+            .toList();
+
+        print('📱 Found ${messages.length} mobile money messages from ${queriedMessages.length} total messages');
+      } catch (e) {
+        print('Error querying SMS, falling back to demo data: $e');
+        // Fall back to sample messages for demo
+        messages = _createSampleMessages();
+      }
 
       // Clear previous results
       scannedMessages.clear();
       fraudResults.clear();
 
       // Add and analyze each message
-      for (SmsMessage message in sampleMessages) {
+      for (SmsMessage message in messages) {
         scannedMessages.add(message);
         await _analyzeMessage(message);
       }
@@ -152,7 +201,7 @@ class SmsScannerController extends GetxController {
 
       Get.snackbar(
         'Scan Complete',
-        'Analyzed ${sampleMessages.length} mobile money messages',
+        'Analyzed ${messages.length} mobile money messages',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.blue.withOpacity(0.8),
         colorText: Colors.white,
@@ -368,14 +417,32 @@ class SmsScannerController extends GetxController {
 
   /// Toggle background monitoring
   void toggleBackgroundMonitoring() {
-    // For demo mode, just show a notification
-    Get.snackbar(
-      'Demo Mode',
-      'Background monitoring is simulated in demo mode',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.blue.withOpacity(0.8),
-      colorText: Colors.white,
-    );
+    if (!hasPermission.value) {
+      requestPermissions();
+      return;
+    }
+
+    if (_backgroundService.isRunning.value) {
+      _backgroundService.stopBackgroundMonitoring();
+      backgroundMonitoringEnabled.value = false;
+      Get.snackbar(
+        'Monitoring Disabled',
+        'Background SMS monitoring has been disabled',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.withOpacity(0.8),
+        colorText: Colors.white,
+      );
+    } else {
+      _backgroundService.startBackgroundMonitoring();
+      backgroundMonitoringEnabled.value = _backgroundService.isRunning.value;
+      Get.snackbar(
+        'Monitoring Enabled',
+        'Background SMS monitoring is now active',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green.withOpacity(0.8),
+        colorText: Colors.white,
+      );
+    }
   }
 
   /// Create sample data for demo purposes
@@ -388,6 +455,41 @@ class SmsScannerController extends GetxController {
     // Analyze a sample message to show fraud detection
     if (sampleMessages.isNotEmpty) {
       _analyzeMessage(sampleMessages.first);
+    }
+  }
+
+  /// Check for pending fraud alerts from background service
+  void _checkPendingFraudAlerts() {
+    try {
+      final pendingAlerts = _backgroundService.getPendingFraudAlerts();
+      
+      if (pendingAlerts.isNotEmpty) {
+        print('Found ${pendingAlerts.length} pending fraud alerts');
+        
+        for (final alert in pendingAlerts) {
+          final messageData = alert['message'];
+          final resultData = alert['result'];
+          
+          if (messageData != null && resultData != null) {
+            final message = SmsMessage.fromJson(messageData);
+            final result = FraudResult.fromJson(resultData);
+            
+            // Show alert to user
+            _showFraudAlert(message, result);
+          }
+        }
+        
+        // Mark alerts as shown
+        final alertIds = pendingAlerts
+            .map((alert) => alert['result']?['messageId'] as String?)
+            .where((id) => id != null)
+            .cast<String>()
+            .toList();
+        
+        _backgroundService.markAlertsAsShown(alertIds);
+      }
+    } catch (e) {
+      print('Error checking pending fraud alerts: $e');
     }
   }
 

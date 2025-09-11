@@ -94,15 +94,16 @@ class FraudDetectionService extends GetxService {
     }
   }
 
-  /// Analyze SMS message for fraud using AWS Nova (via your NestJS backend)
+  /// Analyze SMS message for fraud using the API endpoint
   Future<FraudResult> analyzeSmsMessage(SmsMessage message) async {
     try {
-      // For demo purposes, we'll use local analysis
-      // In production, this would call your NestJS API with AWS Nova
-      return await _analyzeLocally(message);
-
-      // Production implementation would be:
-      // return await _analyzeWithApi(message);
+      // Try API analysis first, fall back to local analysis if it fails
+      try {
+        return await _analyzeWithApi(message);
+      } catch (apiError) {
+        print('API analysis failed, falling back to local analysis: $apiError');
+        return await _analyzeLocally(message);
+      }
     } catch (e) {
       print('Error analyzing message: $e');
       // Return safe result on error
@@ -141,32 +142,86 @@ class FraudDetectionService extends GetxService {
     );
   }
 
-  /// Real API analysis (production implementation)
-  /// Uncomment when ready to integrate with actual API
-  /* 
+  /// Real API analysis implementation
   Future<FraudResult> _analyzeWithApi(SmsMessage message) async {
     try {
-      final response = await _dio.post(
-        '/fraud/analyze',
+      final response = await _networkService.post(
+        '/fraud-detection/analyze-text',
         data: {
-          'message': message.toJson(),
-          'analysisType': 'sms',
-          'language': 'en', // Could be dynamic based on user settings
+          'text': message.body,
+          'sender': message.sender,
+          'timestamp': message.timestamp.toIso8601String(),
+          'messageId': message.id,
+          'source': 'SMS_SCAN',
         },
       );
 
-      return FraudResult.fromJson(response.data);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 429) {
+      if (response?.statusCode == 200 && response?.data != null) {
+        final data = response!.data['data'];
+        
+        // Map API response to our FraudResult model
+        return FraudResult(
+          messageId: message.id,
+          isFraud: data['status'] == 'FRAUD',
+          confidenceScore: (data['confidence'] ?? 0) / 100.0, // Convert percentage to decimal
+          riskLevel: _mapStatusToRiskLevel(data['status']),
+          fraudType: _determineFraudType(data['riskFactors'] ?? []),
+          reason: data['analysisDetails'],
+          redFlags: List<String>.from(data['riskFactors'] ?? []),
+          analyzedAt: DateTime.parse(data['timestamp'] ?? DateTime.now().toIso8601String()),
+          additionalData: {
+            'transactionId': data['transactionId'],
+            'source': data['source'],
+            'apiResponse': data,
+          },
+        );
+      } else {
+        throw Exception('Invalid API response: ${response?.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('429')) {
         throw Exception('Rate limit exceeded. Please try again later.');
-      } else if (e.response?.statusCode == 401) {
+      } else if (e.toString().contains('401')) {
         throw Exception('Unauthorized. Please check your API credentials.');
       } else {
-        throw Exception('Network error: ${e.message}');
+        throw Exception('Network error: $e');
       }
     }
   }
-  */
+
+  /// Map API status to our risk level enum
+  FraudRiskLevel _mapStatusToRiskLevel(String? status) {
+    switch (status?.toUpperCase()) {
+      case 'FRAUD':
+        return FraudRiskLevel.high;
+      case 'SUSPICIOUS':
+        return FraudRiskLevel.medium;
+      case 'SAFE':
+        return FraudRiskLevel.low;
+      default:
+        return FraudRiskLevel.low;
+    }
+  }
+
+  /// Determine fraud type from risk factors
+  FraudType? _determineFraudType(List<dynamic> riskFactors) {
+    final factors = riskFactors.map((f) => f.toString().toLowerCase()).toList();
+    
+    if (factors.any((f) => f.contains('phishing') || f.contains('link') || f.contains('click'))) {
+      return FraudType.phishing;
+    }
+    if (factors.any((f) => f.contains('personal information') || f.contains('pin') || f.contains('password'))) {
+      return FraudType.socialEngineering;
+    }
+    if (factors.any((f) => f.contains('urgent') || f.contains('immediate') || f.contains('expire'))) {
+      return FraudType.socialEngineering;
+    }
+    if (factors.any((f) => f.contains('spoofing') || f.contains('impersonation'))) {
+      return FraudType.spoofing;
+    }
+    
+    return FraudType.unknown;
+  }
 
   /// Local fraud detection logic
   Map<String, dynamic> _performLocalAnalysis(SmsMessage message) {
