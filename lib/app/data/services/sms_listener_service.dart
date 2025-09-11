@@ -1,21 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:readsms/readsms.dart';
-import 'package:permission_handler/permission_handler.dart';
-import '../models/sms_message.dart';
+import 'package:another_telephony/telephony.dart';
+import '../models/sms_message.dart' as app_models;
 import '../models/fraud_result.dart';
 import 'fraud_detection_service.dart';
 
+/// Background message handler for incoming SMS
+@pragma('vm:entry-point')
+backgroundMessageHandler(SmsMessage message) async {
+  // Handle background SMS - for now just log it
+  print('📱 Background SMS: ${message.address} - ${message.body}');
+}
+
 class SmsListenerService extends GetxService {
-  final Readsms _plugin = Readsms();
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
+  final Telephony telephony = Telephony.instance;
 
-  StreamSubscription<SMS>? _smsSubscription;
   final RxBool isListening = false.obs;
-  final RxList<SmsMessage> incomingMessages = <SmsMessage>[].obs;
+  final RxList<app_models.SmsMessage> incomingMessages =
+      <app_models.SmsMessage>[].obs;
   final RxList<FraudResult> backgroundResults = <FraudResult>[].obs;
-
   @override
   void onInit() {
     super.onInit();
@@ -46,14 +51,8 @@ class SmsListenerService extends GetxService {
 
   /// Check and request SMS permissions
   Future<bool> _checkSmsPermissions() async {
-    final status = await Permission.sms.status;
-    if (status.isGranted) {
-      return true;
-    }
-
-    // Request permission if not granted
-    final result = await Permission.sms.request();
-    return result.isGranted;
+    final hasPermissions = await telephony.requestPhoneAndSmsPermissions;
+    return hasPermissions ?? false;
   }
 
   /// Start listening for incoming SMS messages
@@ -70,12 +69,11 @@ class SmsListenerService extends GetxService {
         return false;
       }
 
-      // Start listening to incoming SMS using the correct API
-      _smsSubscription = _plugin.smsStream.listen(
-        _handleIncomingSms,
-        onError: (error) {
-          print('❌ SMS listener error: $error');
-        },
+      // Start listening to incoming SMS using another_telephony
+      telephony.listenIncomingSms(
+        onNewMessage: _handleIncomingSms,
+        onBackgroundMessage: backgroundMessageHandler,
+        listenInBackground: true,
       );
 
       isListening.value = true;
@@ -90,27 +88,29 @@ class SmsListenerService extends GetxService {
 
   /// Stop listening for SMS messages
   void stopListening() {
-    _smsSubscription?.cancel();
-    _smsSubscription = null;
     isListening.value = false;
     print('📱 Stopped SMS listener');
   }
 
   /// Handle incoming SMS message
-  void _handleIncomingSms(SMS sms) async {
+  void _handleIncomingSms(SmsMessage sms) async {
     try {
-      print(
-        '📱 Received SMS from: ${sms.sender}, body: ${sms.body.substring(0, sms.body.length > 50 ? 50 : sms.body.length)}...',
-      );
+      final bodyPreview = (sms.body ?? '').length > 50
+          ? '${(sms.body ?? '').substring(0, 50)}...'
+          : (sms.body ?? '');
+      print('📱 Received SMS from: ${sms.address}, body: $bodyPreview');
 
       // Convert to our SmsMessage model
-      final smsMessage = SmsMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        sender: sms.sender,
-        body: sms.body,
-        timestamp: sms.timeReceived,
-        address: sms
-            .sender, // Use sender as address since readsms doesn't have address field
+      final smsMessage = app_models.SmsMessage(
+        id:
+            sms.id?.toString() ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
+        sender: sms.address ?? 'Unknown',
+        body: sms.body ?? '',
+        timestamp: sms.date != null
+            ? DateTime.fromMillisecondsSinceEpoch(sms.date as int)
+            : DateTime.now(),
+        address: sms.address,
       );
 
       // Only process mobile money related messages
@@ -132,7 +132,7 @@ class SmsListenerService extends GetxService {
   }
 
   /// Analyze message in background
-  Future<void> _analyzeInBackground(SmsMessage message) async {
+  Future<void> _analyzeInBackground(app_models.SmsMessage message) async {
     try {
       print('🔍 Analyzing SMS in background: ${message.id}');
 
@@ -159,7 +159,7 @@ class SmsListenerService extends GetxService {
 
   /// Show fraud alert for background detection
   Future<void> _showBackgroundFraudAlert(
-    SmsMessage message,
+    app_models.SmsMessage message,
     FraudResult result,
   ) async {
     try {
@@ -205,7 +205,10 @@ class SmsListenerService extends GetxService {
   }
 
   /// Show detailed fraud dialog
-  void _showDetailedFraudDialog(SmsMessage message, FraudResult result) {
+  void _showDetailedFraudDialog(
+    app_models.SmsMessage message,
+    FraudResult result,
+  ) {
     Get.dialog(
       AlertDialog(
         title: Row(

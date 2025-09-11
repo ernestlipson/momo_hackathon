@@ -602,7 +602,7 @@ class HomeView extends GetView<HomeController> {
                 child: Container(
                   width: 120,
                   height: 90,
-                  color: const Color(0xFF7C3AED).withOpacity(0.1),
+                  color: const Color(0xFF7C3AED).withOpacity(0.3),
                   child:
                       article.urlToImage != null &&
                           article.urlToImage!.isNotEmpty

@@ -38,8 +38,8 @@ dependencies:
   
   # SMS and Permission handling
   permission_handler: ^11.3.1
-  readsms: ^0.2.0+4  # For reading SMS messages
-  # sms_advanced: ^1.0.2  # Temporarily disabled for demo
+  another_telephony: ^0.4.1  # For reading SMS messages
+  # readsms: ^0.2.0+4  # Disabled due to Android namespace issues
   
   # Background processing
   workmanager: ^0.9.0+3

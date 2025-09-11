@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:readsms/readsms.dart';
+import 'package:another_telephony/telephony.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
 
-import '../../../data/models/sms_message.dart';
+import '../../../data/models/sms_message.dart' as app_models;
 import '../../../data/models/fraud_result.dart';
 import '../../../data/services/fraud_detection_service.dart';
 import '../../../data/services/sms_listener_service.dart';
@@ -17,12 +17,12 @@ class SmsScannerController extends GetxController {
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
   final SmsListenerService _smsListener = Get.find<SmsListenerService>();
   final GetStorage _storage = GetStorage();
-  final Readsms _readsms = Readsms();
+  final Telephony telephony = Telephony.instance;
 
   // Observables
   final isScanning = false.obs;
   final hasPermission = false.obs;
-  final scannedMessages = <SmsMessage>[].obs;
+  final scannedMessages = <app_models.SmsMessage>[].obs;
   final fraudResults = <FraudResult>[].obs;
   final isAnalyzing = false.obs;
   final selectedNavIndex = 0.obs;
@@ -159,7 +159,7 @@ class SmsScannerController extends GetxController {
     });
 
     // Listen to incoming messages and merge them
-    ever(_smsListener.incomingMessages, (List<SmsMessage> messages) {
+    ever(_smsListener.incomingMessages, (List<app_models.SmsMessage> messages) {
       for (final message in messages) {
         // Add to scanned messages if not already present
         if (!scannedMessages.any((m) => m.id == message.id)) {
@@ -202,20 +202,37 @@ class SmsScannerController extends GetxController {
     isScanning.value = true;
 
     try {
-      // Read SMS messages from device
-      final smsMessages = await _readsms.read();
+      // Read SMS messages from device using another_telephony
+      final smsMessages = await telephony.getInboxSms(
+        columns: [
+          SmsColumn.ID,
+          SmsColumn.ADDRESS,
+          SmsColumn.BODY,
+          SmsColumn.DATE,
+        ],
+      );
 
       // Filter only mobile money messages from the last 30 days
       final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
       final mobileMoneyMessages = smsMessages
-          .where((sms) => sms.timeReceived.isAfter(cutoffDate))
+          .where(
+            (sms) =>
+                sms.date != null &&
+                DateTime.fromMillisecondsSinceEpoch(
+                  sms.date!,
+                ).isAfter(cutoffDate),
+          )
           .map(
-            (sms) => SmsMessage(
-              id: sms.timeReceived.millisecondsSinceEpoch.toString(),
-              sender: sms.sender,
-              body: sms.body,
-              timestamp: sms.timeReceived,
-              address: sms.sender,
+            (sms) => app_models.SmsMessage(
+              id:
+                  sms.id?.toString() ??
+                  DateTime.now().millisecondsSinceEpoch.toString(),
+              sender: sms.address ?? 'Unknown',
+              body: sms.body ?? '',
+              timestamp: sms.date != null
+                  ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                  : DateTime.now(),
+              address: sms.address,
             ),
           )
           .where((msg) => msg.isMobileMoneyTransaction)
@@ -228,7 +245,7 @@ class SmsScannerController extends GetxController {
       fraudResults.clear();
 
       // Add and analyze each message
-      for (SmsMessage message in mobileMoneyMessages) {
+      for (app_models.SmsMessage message in mobileMoneyMessages) {
         scannedMessages.add(message);
         await _analyzeMessage(message);
       }
@@ -259,7 +276,7 @@ class SmsScannerController extends GetxController {
   }
 
   /// Analyze a single message for fraud
-  Future<void> _analyzeMessage(SmsMessage message) async {
+  Future<void> _analyzeMessage(app_models.SmsMessage message) async {
     try {
       isAnalyzing.value = true;
 
@@ -281,7 +298,7 @@ class SmsScannerController extends GetxController {
   }
 
   /// Show fraud alert to user
-  void _showFraudAlert(SmsMessage message, FraudResult result) {
+  void _showFraudAlert(app_models.SmsMessage message, FraudResult result) {
     Get.dialog(
       AlertDialog(
         title: Row(
@@ -362,7 +379,7 @@ class SmsScannerController extends GetxController {
 
       if (storedMessages != null) {
         scannedMessages.value = (storedMessages as List)
-            .map((json) => SmsMessage.fromJson(json))
+            .map((json) => app_models.SmsMessage.fromJson(json))
             .toList();
       }
 
