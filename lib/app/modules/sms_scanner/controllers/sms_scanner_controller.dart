@@ -2,18 +2,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
-// import 'package:sms_advanced/sms_advanced.dart'; // Temporarily disabled
+import 'package:readsms/readsms.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/sms_message.dart';
 import '../../../data/models/fraud_result.dart';
 import '../../../data/services/fraud_detection_service.dart';
+import '../../../data/services/sms_listener_service.dart';
+import '../../../data/services/background_sms_worker.dart';
 
 class SmsScannerController extends GetxController {
   // Services
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
+  final SmsListenerService _smsListener = Get.find<SmsListenerService>();
   final GetStorage _storage = GetStorage();
+  final Readsms _readsms = Readsms();
 
   // Observables
   final isScanning = false.obs;
@@ -22,6 +26,7 @@ class SmsScannerController extends GetxController {
   final fraudResults = <FraudResult>[].obs;
   final isAnalyzing = false.obs;
   final selectedNavIndex = 0.obs;
+  final isBackgroundMonitoring = false.obs;
 
   // Statistics
   final totalScanned = 0.obs;
@@ -40,13 +45,13 @@ class SmsScannerController extends GetxController {
   void onReady() {
     super.onReady();
     if (hasPermission.value) {
-      _startBackgroundMonitoring();
+      _initializeBackgroundMonitoring();
     }
   }
 
   @override
   void onClose() {
-    // _smsSubscription?.cancel(); // Temporarily disabled
+    _smsListener.stopListening();
     super.onClose();
   }
 
@@ -89,15 +94,80 @@ class SmsScannerController extends GetxController {
     }
   }
 
-  /// Start background SMS monitoring
-  void _startBackgroundMonitoring() {
+  /// Initialize background SMS monitoring
+  Future<void> _initializeBackgroundMonitoring() async {
     if (!hasPermission.value) return;
 
-    // Temporarily disabled - will implement with working SMS library
-    print('📱 Background SMS monitoring ready (demo mode)');
+    try {
+      // Initialize background worker
+      await BackgroundSmsWorker.initialize();
+      
+      // Check if background monitoring was previously enabled
+      final wasEnabled = await BackgroundSmsWorker.isBackgroundMonitoringEnabled();
+      isBackgroundMonitoring.value = wasEnabled;
+      
+      if (wasEnabled) {
+        await _startBackgroundMonitoring();
+      }
+      
+      print('📱 Background monitoring initialized');
+    } catch (e) {
+      print('❌ Error initializing background monitoring: $e');
+    }
+  }
 
-    // For demo, create some sample data
-    _createSampleData();
+  /// Start background SMS monitoring
+  Future<void> _startBackgroundMonitoring() async {
+    if (!hasPermission.value) return;
+
+    try {
+      // Start the SMS listener service
+      final started = await _smsListener.startListening();
+      
+      if (started) {
+        // Start background worker
+        await BackgroundSmsWorker.startBackgroundMonitoring();
+        isBackgroundMonitoring.value = true;
+        
+        print('📱 Background SMS monitoring started');
+        
+        // Merge background results with controller results
+        _mergeBackgroundResults();
+      } else {
+        print('❌ Failed to start SMS listener');
+      }
+    } catch (e) {
+      print('❌ Error starting background monitoring: $e');
+    }
+  }
+
+  /// Merge background results with controller results
+  void _mergeBackgroundResults() {
+    // Listen to background results and merge them
+    ever(_smsListener.backgroundResults, (List<FraudResult> results) {
+      for (final result in results) {
+        // Add to fraud results if not already present
+        if (!fraudResults.any((r) => r.messageId == result.messageId)) {
+          fraudResults.insert(0, result);
+          if (result.isFraud) {
+            fraudDetected.value++;
+          }
+        }
+      }
+      _saveToStorage();
+    });
+
+    // Listen to incoming messages and merge them
+    ever(_smsListener.incomingMessages, (List<SmsMessage> messages) {
+      for (final message in messages) {
+        // Add to scanned messages if not already present
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.insert(0, message);
+          totalScanned.value++;
+        }
+      }
+      _saveToStorage();
+    });
   }
 
   /// Handle incoming SMS messages (disabled in demo mode)
@@ -131,17 +201,31 @@ class SmsScannerController extends GetxController {
     isScanning.value = true;
 
     try {
-      // For demo purposes, create sample mobile money SMS messages
-      final sampleMessages = _createSampleMessages();
+      // Read SMS messages from device
+      final smsMessages = await _readsms.read();
+      
+      // Filter only mobile money messages from the last 30 days
+      final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+      final mobileMoneyMessages = smsMessages
+          .where((sms) => sms.timeReceived.isAfter(cutoffDate))
+          .map((sms) => SmsMessage(
+                id: sms.timeReceived.millisecondsSinceEpoch.toString(),
+                sender: sms.sender,
+                body: sms.body,
+                timestamp: sms.timeReceived,
+                address: sms.sender,
+              ))
+          .where((msg) => msg.isMobileMoneyTransaction)
+          .toList();
 
-      print('📱 Found ${sampleMessages.length} mobile money messages (demo)');
+      print('📱 Found ${mobileMoneyMessages.length} mobile money messages');
 
       // Clear previous results
       scannedMessages.clear();
       fraudResults.clear();
 
       // Add and analyze each message
-      for (SmsMessage message in sampleMessages) {
+      for (SmsMessage message in mobileMoneyMessages) {
         scannedMessages.add(message);
         await _analyzeMessage(message);
       }
@@ -152,7 +236,7 @@ class SmsScannerController extends GetxController {
 
       Get.snackbar(
         'Scan Complete',
-        'Analyzed ${sampleMessages.length} mobile money messages',
+        'Analyzed ${mobileMoneyMessages.length} mobile money messages',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.blue.withOpacity(0.8),
         colorText: Colors.white,
@@ -176,7 +260,7 @@ class SmsScannerController extends GetxController {
     try {
       isAnalyzing.value = true;
 
-      final result = await _fraudService.analyzeSmsMessage(message);
+      final result = await _fraudService.analyzeSmsMessage(message, source: 'USER_SCAN');
       fraudResults.insert(0, result);
 
       if (result.isFraud) {
@@ -354,6 +438,10 @@ class SmsScannerController extends GetxController {
         totalScanned.value = 0;
         fraudDetected.value = 0;
         lastScanTime.value = null;
+        
+        // Also clear background results
+        _smsListener.clearBackgroundResults();
+        
         _saveToStorage();
 
         Get.back();
@@ -367,75 +455,49 @@ class SmsScannerController extends GetxController {
   }
 
   /// Toggle background monitoring
-  void toggleBackgroundMonitoring() {
-    // For demo mode, just show a notification
-    Get.snackbar(
-      'Demo Mode',
-      'Background monitoring is simulated in demo mode',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.blue.withOpacity(0.8),
-      colorText: Colors.white,
-    );
-  }
-
-  /// Create sample data for demo purposes
-  void _createSampleData() {
-    // Create some sample messages for demo
-    final sampleMessages = _createSampleMessages();
-    scannedMessages.addAll(sampleMessages.take(3));
-    totalScanned.value = scannedMessages.length;
-
-    // Analyze a sample message to show fraud detection
-    if (sampleMessages.isNotEmpty) {
-      _analyzeMessage(sampleMessages.first);
+  Future<void> toggleBackgroundMonitoring() async {
+    try {
+      if (isBackgroundMonitoring.value) {
+        // Stop background monitoring
+        _smsListener.stopListening();
+        await BackgroundSmsWorker.stopBackgroundMonitoring();
+        await BackgroundSmsWorker.setBackgroundMonitoringEnabled(false);
+        isBackgroundMonitoring.value = false;
+        
+        Get.snackbar(
+          'Background Monitoring Disabled',
+          'SMS fraud detection will only work when app is open',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      } else {
+        // Start background monitoring
+        if (!hasPermission.value) {
+          await requestPermissions();
+          if (!hasPermission.value) return;
+        }
+        
+        await _startBackgroundMonitoring();
+        await BackgroundSmsWorker.setBackgroundMonitoringEnabled(true);
+        
+        Get.snackbar(
+          'Background Monitoring Enabled',
+          'SMS fraud detection is now active in the background',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      print('❌ Error toggling background monitoring: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to toggle background monitoring: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
     }
-  }
-
-  /// Create sample SMS messages for demo
-  List<SmsMessage> _createSampleMessages() {
-    final now = DateTime.now();
-
-    return [
-      SmsMessage(
-        id: 'demo_1',
-        sender: 'MTN',
-        body:
-            'Your MTN mobile money transaction was successful. You have received GHS 50.00 from 0244123456. New balance: GHS 150.00. Ref: MM123456789',
-        timestamp: now.subtract(const Duration(hours: 1)),
-        address: '0244123456',
-      ),
-      SmsMessage(
-        id: 'demo_2',
-        sender: 'UNKNOWN',
-        body:
-            'URGENT: Your account has been suspended. Click here to verify your account immediately: bit.ly/fake-link or you will lose your money!',
-        timestamp: now.subtract(const Duration(hours: 2)),
-        address: '0557123456',
-      ),
-      SmsMessage(
-        id: 'demo_3',
-        sender: 'VODAFONE',
-        body:
-            'You have successfully sent GHS 25.00 to 0201987654. Your new balance is GHS 75.50. Transaction ID: VF987654321',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        address: '0201987654',
-      ),
-      SmsMessage(
-        id: 'demo_4',
-        sender: 'FAKE-MTN',
-        body:
-            'Congratulations! You have won GHS 10,000 in our lottery! To claim your prize, send your PIN to this number immediately!',
-        timestamp: now.subtract(const Duration(days: 1)),
-        address: '0555666777',
-      ),
-      SmsMessage(
-        id: 'demo_5',
-        sender: 'AIRTELTIGO',
-        body:
-            'You have received GHS 100.00 from 0208765432. Your wallet balance is now GHS 225.00. Ref: AT555444333',
-        timestamp: now.subtract(const Duration(days: 1, hours: 2)),
-        address: '0208765432',
-      ),
-    ];
   }
 }

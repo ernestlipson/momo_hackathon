@@ -94,27 +94,106 @@ class FraudDetectionService extends GetxService {
     }
   }
 
-  /// Analyze SMS message for fraud using AWS Nova (via your NestJS backend)
-  Future<FraudResult> analyzeSmsMessage(SmsMessage message) async {
+  /// Analyze SMS message for fraud using the API
+  Future<FraudResult> analyzeSmsMessage(SmsMessage message, {String source = 'USER_SCAN'}) async {
     try {
-      // For demo purposes, we'll use local analysis
-      // In production, this would call your NestJS API with AWS Nova
-      return await _analyzeLocally(message);
-
-      // Production implementation would be:
-      // return await _analyzeWithApi(message);
+      // Call the actual API for fraud detection
+      return await _analyzeWithApi(message, source);
     } catch (e) {
-      print('Error analyzing message: $e');
-      // Return safe result on error
-      return FraudResult(
-        messageId: message.id,
-        isFraud: false,
-        confidenceScore: 0.0,
-        riskLevel: FraudRiskLevel.low,
-        reason: 'Analysis failed: $e',
-        analyzedAt: DateTime.now(),
-      );
+      print('Error analyzing message with API: $e');
+      // Fallback to local analysis if API fails
+      return await _analyzeLocally(message);
     }
+  }
+
+  /// Real API analysis implementation
+  Future<FraudResult> _analyzeWithApi(SmsMessage message, String source) async {
+    try {
+      final response = await _networkService.post(
+        '/api/fraud-detection/analyze-text',
+        data: {
+          'smsBody': message.body,
+          'source': source,
+        },
+      );
+
+      if (response != null && response.statusCode == 200 && response.data != null) {
+        return _mapApiResponseToFraudResult(response.data, message.id);
+      } else {
+        throw Exception('Invalid API response: ${response?.statusCode}');
+      }
+    } catch (e) {
+      print('API analysis failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Map API response to FraudResult model
+  FraudResult _mapApiResponseToFraudResult(Map<String, dynamic> apiData, String messageId) {
+    final data = apiData['data'] ?? {};
+    
+    final status = data['status'] ?? 'SAFE';
+    final isFraud = status.toString().toUpperCase() == 'FRAUD';
+    
+    final confidence = (data['confidence'] ?? 0).toDouble();
+    final confidenceScore = confidence / 100.0; // Convert percentage to decimal
+    
+    final riskFactors = List<String>.from(data['riskFactors'] ?? []);
+    final analysisDetails = data['analysisDetails'] ?? '';
+    
+    // Determine risk level based on confidence
+    final riskLevel = _getRiskLevelFromConfidence(confidenceScore);
+    
+    // Determine fraud type based on risk factors
+    final fraudType = _determineFraudType(riskFactors);
+
+    return FraudResult(
+      messageId: messageId,
+      isFraud: isFraud,
+      confidenceScore: confidenceScore.clamp(0.0, 1.0),
+      riskLevel: riskLevel,
+      fraudType: fraudType,
+      reason: analysisDetails.isNotEmpty ? analysisDetails : (isFraud ? 'Fraud detected by API' : 'Message appears safe'),
+      redFlags: riskFactors,
+      analyzedAt: DateTime.now(),
+      additionalData: {
+        'analysisMethod': 'api',
+        'transactionId': data['transactionId'],
+        'source': data['source'],
+        'timestamp': data['timestamp'],
+      },
+    );
+  }
+
+  /// Determine risk level from confidence score
+  FraudRiskLevel _getRiskLevelFromConfidence(double confidence) {
+    if (confidence >= 0.9) return FraudRiskLevel.critical;
+    if (confidence >= 0.7) return FraudRiskLevel.high;
+    if (confidence >= 0.4) return FraudRiskLevel.medium;
+    return FraudRiskLevel.low;
+  }
+
+  /// Determine fraud type from risk factors
+  FraudType? _determineFraudType(List<String> riskFactors) {
+    final factors = riskFactors.map((f) => f.toLowerCase()).toList();
+    
+    if (factors.any((f) => f.contains('personal information') || f.contains('phishing'))) {
+      return FraudType.phishing;
+    }
+    if (factors.any((f) => f.contains('urgent') || f.contains('social'))) {
+      return FraudType.socialEngineering;
+    }
+    if (factors.any((f) => f.contains('sim') || f.contains('swap'))) {
+      return FraudType.simSwap;
+    }
+    if (factors.any((f) => f.contains('unauthorized') || f.contains('transfer'))) {
+      return FraudType.unauthorizedTransfer;
+    }
+    if (factors.any((f) => f.contains('spoofing') || f.contains('impersonation'))) {
+      return FraudType.spoofing;
+    }
+    
+    return riskFactors.isNotEmpty ? FraudType.unknown : null;
   }
 
   /// Local fraud analysis (for demo/offline use)
@@ -347,11 +426,11 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Batch analyze multiple messages
-  Future<List<FraudResult>> analyzeMessages(List<SmsMessage> messages) async {
+  Future<List<FraudResult>> analyzeMessages(List<SmsMessage> messages, {String source = 'USER_SCAN'}) async {
     final List<FraudResult> results = [];
 
     for (SmsMessage message in messages) {
-      final result = await analyzeSmsMessage(message);
+      final result = await analyzeSmsMessage(message, source: source);
       results.add(result);
     }
 

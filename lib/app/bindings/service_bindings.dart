@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import '../data/services/network/base_network_service.dart';
 import '../data/services/fraud_detection_service.dart';
+import '../data/services/sms_listener_service.dart';
+import '../data/services/background_sms_worker.dart';
 import '../data/services/news_service.dart';
 import '../data/services/api_article_service.dart';
 import '../data/services/auth_service.dart';
@@ -18,6 +20,11 @@ class ServiceBindings extends Bindings {
     // Initialize fraud detection service immediately for core functionality
     if (!Get.isRegistered<FraudDetectionService>()) {
       Get.put<FraudDetectionService>(FraudDetectionService(), permanent: true);
+    }
+
+    // Initialize SMS listener service for background monitoring
+    if (!Get.isRegistered<SmsListenerService>()) {
+      Get.put<SmsListenerService>(SmsListenerService(), permanent: true);
     }
 
     // Initialize news service for fetching articles
