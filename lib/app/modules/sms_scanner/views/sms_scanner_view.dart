@@ -10,7 +10,45 @@ class SmsScannerView extends GetView<SmsScannerController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'SMS Scanner',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        actions: [
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: Color(0xFF7C3AED)),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                onTap: controller.clearAllData,
+                child: const Row(
+                  children: [
+                    Icon(Icons.clear_all, size: 20),
+                    SizedBox(width: 8),
+                    Text('Clear Data'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                onTap: controller.toggleBackgroundMonitoring,
+                child: const Row(
+                  children: [
+                    Icon(Icons.notifications, size: 20),
+                    SizedBox(width: 8),
+                    Text('Toggle Monitoring'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -22,9 +60,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    // Header
-                    _buildHeader(),
-                    const SizedBox(height: 32),
 
                     // Permission Status
                     _buildPermissionStatus(),
@@ -47,47 +82,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'SMS Scanner',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        PopupMenuButton(
-          icon: const Icon(Icons.more_vert, color: Color(0xFF7C3AED)),
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              onTap: controller.clearAllData,
-              child: const Row(
-                children: [
-                  Icon(Icons.clear_all, size: 20),
-                  SizedBox(width: 8),
-                  Text('Clear Data'),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              onTap: controller.toggleBackgroundMonitoring,
-              child: const Row(
-                children: [
-                  Icon(Icons.notifications, size: 20),
-                  SizedBox(width: 8),
-                  Text('Toggle Monitoring'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 

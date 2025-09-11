@@ -706,6 +706,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget _buildLoadingState() {
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.all(32),
       child: const Column(
         children: [
@@ -724,6 +725,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget _buildErrorState() {
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
@@ -760,6 +762,7 @@ class HomeView extends GetView<HomeController> {
 
   Widget _buildEmptyState() {
     return Container(
+      alignment: Alignment.center,
       padding: const EdgeInsets.all(32),
       child: const Column(
         children: [
@@ -835,7 +838,9 @@ class HomeView extends GetView<HomeController> {
                   width: 120,
                   height: 90,
                   color: const Color(0xFF7C3AED).withOpacity(0.1),
-                  child: article.coverImage != null && article.coverImage!.isNotEmpty
+                  child:
+                      article.coverImage != null &&
+                          article.coverImage!.isNotEmpty
                       ? Image.network(
                           article.coverImage!,
                           fit: BoxFit.cover,
