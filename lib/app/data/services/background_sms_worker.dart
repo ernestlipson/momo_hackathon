@@ -13,7 +13,7 @@ class BackgroundSmsWorker {
       callbackDispatcher,
       isInDebugMode: false, // Set to true for debugging
     );
-    
+
     print('🔧 Background SMS Worker initialized');
   }
 
@@ -63,7 +63,7 @@ class BackgroundSmsWorker {
   static Future<void> setBackgroundMonitoringEnabled(bool enabled) async {
     final storage = GetStorage();
     await storage.write('background_monitoring_enabled', enabled);
-    
+
     if (enabled) {
       await startBackgroundMonitoring();
     } else {
@@ -79,7 +79,7 @@ void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     try {
       print('🔄 Background task started: $taskName');
-      
+
       switch (taskName) {
         case BackgroundSmsWorker.TASK_NAME:
           await _performBackgroundSmsCheck();
@@ -103,24 +103,26 @@ Future<void> _performBackgroundSmsCheck() async {
   try {
     // Initialize GetStorage for background task
     await GetStorage.init();
-    
+
     // For now, this will just log that the background task is running
     // In a full implementation, you might:
     // 1. Check for new SMS messages since last check
     // 2. Analyze any new mobile money messages
     // 3. Store results for when the app reopens
     // 4. Send local notifications for fraud alerts
-    
+
     print('📱 Background SMS check performed at ${DateTime.now()}');
-    
+
     // Store the last check time
     final storage = GetStorage();
-    await storage.write('last_background_check', DateTime.now().toIso8601String());
-    
+    await storage.write(
+      'last_background_check',
+      DateTime.now().toIso8601String(),
+    );
+
     // In a real implementation, you would integrate with the SMS listener here
     // However, reading SMS in background requires special handling and might
     // be restricted on newer Android versions
-    
   } catch (e) {
     print('❌ Error in background SMS check: $e');
   }
@@ -143,11 +145,11 @@ class BackgroundWorkerUtils {
   static Map<String, dynamic> getBackgroundStats() {
     final lastCheck = getLastBackgroundCheckTime();
     final isEnabled = _storage.read('background_monitoring_enabled') ?? false;
-    
+
     return {
       'isEnabled': isEnabled,
       'lastCheck': lastCheck,
-      'timeSinceLastCheck': lastCheck != null 
+      'timeSinceLastCheck': lastCheck != null
           ? DateTime.now().difference(lastCheck).inMinutes
           : null,
     };

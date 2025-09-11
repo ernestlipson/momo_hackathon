@@ -101,15 +101,16 @@ class SmsScannerController extends GetxController {
     try {
       // Initialize background worker
       await BackgroundSmsWorker.initialize();
-      
+
       // Check if background monitoring was previously enabled
-      final wasEnabled = await BackgroundSmsWorker.isBackgroundMonitoringEnabled();
+      final wasEnabled =
+          await BackgroundSmsWorker.isBackgroundMonitoringEnabled();
       isBackgroundMonitoring.value = wasEnabled;
-      
+
       if (wasEnabled) {
         await _startBackgroundMonitoring();
       }
-      
+
       print('📱 Background monitoring initialized');
     } catch (e) {
       print('❌ Error initializing background monitoring: $e');
@@ -123,14 +124,14 @@ class SmsScannerController extends GetxController {
     try {
       // Start the SMS listener service
       final started = await _smsListener.startListening();
-      
+
       if (started) {
         // Start background worker
         await BackgroundSmsWorker.startBackgroundMonitoring();
         isBackgroundMonitoring.value = true;
-        
+
         print('📱 Background SMS monitoring started');
-        
+
         // Merge background results with controller results
         _mergeBackgroundResults();
       } else {
@@ -203,18 +204,20 @@ class SmsScannerController extends GetxController {
     try {
       // Read SMS messages from device
       final smsMessages = await _readsms.read();
-      
+
       // Filter only mobile money messages from the last 30 days
       final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
       final mobileMoneyMessages = smsMessages
           .where((sms) => sms.timeReceived.isAfter(cutoffDate))
-          .map((sms) => SmsMessage(
-                id: sms.timeReceived.millisecondsSinceEpoch.toString(),
-                sender: sms.sender,
-                body: sms.body,
-                timestamp: sms.timeReceived,
-                address: sms.sender,
-              ))
+          .map(
+            (sms) => SmsMessage(
+              id: sms.timeReceived.millisecondsSinceEpoch.toString(),
+              sender: sms.sender,
+              body: sms.body,
+              timestamp: sms.timeReceived,
+              address: sms.sender,
+            ),
+          )
           .where((msg) => msg.isMobileMoneyTransaction)
           .toList();
 
@@ -260,7 +263,10 @@ class SmsScannerController extends GetxController {
     try {
       isAnalyzing.value = true;
 
-      final result = await _fraudService.analyzeSmsMessage(message, source: 'USER_SCAN');
+      final result = await _fraudService.analyzeSmsMessage(
+        message,
+        source: 'USER_SCAN',
+      );
       fraudResults.insert(0, result);
 
       if (result.isFraud) {
@@ -438,10 +444,10 @@ class SmsScannerController extends GetxController {
         totalScanned.value = 0;
         fraudDetected.value = 0;
         lastScanTime.value = null;
-        
+
         // Also clear background results
         _smsListener.clearBackgroundResults();
-        
+
         _saveToStorage();
 
         Get.back();
@@ -463,7 +469,7 @@ class SmsScannerController extends GetxController {
         await BackgroundSmsWorker.stopBackgroundMonitoring();
         await BackgroundSmsWorker.setBackgroundMonitoringEnabled(false);
         isBackgroundMonitoring.value = false;
-        
+
         Get.snackbar(
           'Background Monitoring Disabled',
           'SMS fraud detection will only work when app is open',
@@ -477,10 +483,10 @@ class SmsScannerController extends GetxController {
           await requestPermissions();
           if (!hasPermission.value) return;
         }
-        
+
         await _startBackgroundMonitoring();
         await BackgroundSmsWorker.setBackgroundMonitoringEnabled(true);
-        
+
         Get.snackbar(
           'Background Monitoring Enabled',
           'SMS fraud detection is now active in the background',

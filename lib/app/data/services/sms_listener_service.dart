@@ -10,7 +10,7 @@ import 'fraud_detection_service.dart';
 class SmsListenerService extends GetxService {
   final Readsms _plugin = Readsms();
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
-  
+
   StreamSubscription<SMS>? _smsSubscription;
   final RxBool isListening = false.obs;
   final RxList<SmsMessage> incomingMessages = <SmsMessage>[].obs;
@@ -80,7 +80,7 @@ class SmsListenerService extends GetxService {
 
       isListening.value = true;
       print('📱 Started listening for SMS messages');
-      
+
       return true;
     } catch (e) {
       print('❌ Error starting SMS listener: $e');
@@ -99,7 +99,9 @@ class SmsListenerService extends GetxService {
   /// Handle incoming SMS message
   void _handleIncomingSms(SMS sms) async {
     try {
-      print('📱 Received SMS from: ${sms.sender}, body: ${sms.body.substring(0, sms.body.length > 50 ? 50 : sms.body.length)}...');
+      print(
+        '📱 Received SMS from: ${sms.sender}, body: ${sms.body.substring(0, sms.body.length > 50 ? 50 : sms.body.length)}...',
+      );
 
       // Convert to our SmsMessage model
       final smsMessage = SmsMessage(
@@ -107,7 +109,8 @@ class SmsListenerService extends GetxService {
         sender: sms.sender,
         body: sms.body,
         timestamp: sms.timeReceived,
-        address: sms.sender, // Use sender as address since readsms doesn't have address field
+        address: sms
+            .sender, // Use sender as address since readsms doesn't have address field
       );
 
       // Only process mobile money related messages
@@ -117,13 +120,12 @@ class SmsListenerService extends GetxService {
       }
 
       print('💰 Processing mobile money SMS from: ${smsMessage.sender}');
-      
+
       // Add to incoming messages list
       incomingMessages.insert(0, smsMessage);
 
       // Analyze for fraud in background
       await _analyzeInBackground(smsMessage);
-
     } catch (e) {
       print('❌ Error handling incoming SMS: $e');
     }
@@ -133,9 +135,9 @@ class SmsListenerService extends GetxService {
   Future<void> _analyzeInBackground(SmsMessage message) async {
     try {
       print('🔍 Analyzing SMS in background: ${message.id}');
-      
+
       final result = await _fraudService.analyzeSmsMessage(
-        message, 
+        message,
         source: 'BACKGROUND_SCAN',
       );
 
@@ -147,14 +149,19 @@ class SmsListenerService extends GetxService {
         await _showBackgroundFraudAlert(message, result);
       }
 
-      print('✅ Background analysis complete for ${message.id}: ${result.isFraud ? 'FRAUD' : 'SAFE'}');
+      print(
+        '✅ Background analysis complete for ${message.id}: ${result.isFraud ? 'FRAUD' : 'SAFE'}',
+      );
     } catch (e) {
       print('❌ Error in background analysis: $e');
     }
   }
 
   /// Show fraud alert for background detection
-  Future<void> _showBackgroundFraudAlert(SmsMessage message, FraudResult result) async {
+  Future<void> _showBackgroundFraudAlert(
+    SmsMessage message,
+    FraudResult result,
+  ) async {
     try {
       // Show notification-style alert
       Get.snackbar(
@@ -167,7 +174,9 @@ class SmsListenerService extends GetxService {
         isDismissible: true,
         showProgressIndicator: true,
         progressIndicatorBackgroundColor: Colors.red.withOpacity(0.3),
-        progressIndicatorValueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+        progressIndicatorValueColor: const AlwaysStoppedAnimation<Color>(
+          Colors.white,
+        ),
         onTap: (_) {
           // Navigate to SMS scanner view
           Get.toNamed('/sms-scanner');
@@ -216,11 +225,18 @@ class SmsListenerService extends GetxService {
             ),
             const SizedBox(height: 12),
             Text('Risk Level: ${result.riskLevelText}'),
-            Text('Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%'),
+            Text(
+              'Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%',
+            ),
             const SizedBox(height: 12),
             if (result.redFlags.isNotEmpty) ...[
-              const Text('Risk Factors:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...result.redFlags.map((flag) => Text('• $flag', style: const TextStyle(fontSize: 12))),
+              const Text(
+                'Risk Factors:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              ...result.redFlags.map(
+                (flag) => Text('• $flag', style: const TextStyle(fontSize: 12)),
+              ),
               const SizedBox(height: 12),
             ],
             Container(
@@ -239,10 +255,7 @@ class SmsListenerService extends GetxService {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Dismiss'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Dismiss')),
           ElevatedButton(
             onPressed: () {
               Get.back();
@@ -277,12 +290,14 @@ class SmsListenerService extends GetxService {
   Map<String, dynamic> getBackgroundStats() {
     final totalScanned = backgroundResults.length;
     final fraudDetected = backgroundResults.where((r) => r.isFraud).length;
-    
+
     return {
       'totalScanned': totalScanned,
       'fraudDetected': fraudDetected,
       'isListening': isListening.value,
-      'lastScan': backgroundResults.isNotEmpty ? backgroundResults.first.analyzedAt : null,
+      'lastScan': backgroundResults.isNotEmpty
+          ? backgroundResults.first.analyzedAt
+          : null,
     };
   }
 }

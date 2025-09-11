@@ -95,7 +95,10 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Analyze SMS message for fraud using the API
-  Future<FraudResult> analyzeSmsMessage(SmsMessage message, {String source = 'USER_SCAN'}) async {
+  Future<FraudResult> analyzeSmsMessage(
+    SmsMessage message, {
+    String source = 'USER_SCAN',
+  }) async {
     try {
       // Call the actual API for fraud detection
       return await _analyzeWithApi(message, source);
@@ -111,13 +114,12 @@ class FraudDetectionService extends GetxService {
     try {
       final response = await _networkService.post(
         '/api/fraud-detection/analyze-text',
-        data: {
-          'smsBody': message.body,
-          'source': source,
-        },
+        data: {'smsBody': message.body, 'source': source},
       );
 
-      if (response != null && response.statusCode == 200 && response.data != null) {
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
         return _mapApiResponseToFraudResult(response.data, message.id);
       } else {
         throw Exception('Invalid API response: ${response?.statusCode}');
@@ -129,21 +131,24 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Map API response to FraudResult model
-  FraudResult _mapApiResponseToFraudResult(Map<String, dynamic> apiData, String messageId) {
+  FraudResult _mapApiResponseToFraudResult(
+    Map<String, dynamic> apiData,
+    String messageId,
+  ) {
     final data = apiData['data'] ?? {};
-    
+
     final status = data['status'] ?? 'SAFE';
     final isFraud = status.toString().toUpperCase() == 'FRAUD';
-    
+
     final confidence = (data['confidence'] ?? 0).toDouble();
     final confidenceScore = confidence / 100.0; // Convert percentage to decimal
-    
+
     final riskFactors = List<String>.from(data['riskFactors'] ?? []);
     final analysisDetails = data['analysisDetails'] ?? '';
-    
+
     // Determine risk level based on confidence
     final riskLevel = _getRiskLevelFromConfidence(confidenceScore);
-    
+
     // Determine fraud type based on risk factors
     final fraudType = _determineFraudType(riskFactors);
 
@@ -153,7 +158,9 @@ class FraudDetectionService extends GetxService {
       confidenceScore: confidenceScore.clamp(0.0, 1.0),
       riskLevel: riskLevel,
       fraudType: fraudType,
-      reason: analysisDetails.isNotEmpty ? analysisDetails : (isFraud ? 'Fraud detected by API' : 'Message appears safe'),
+      reason: analysisDetails.isNotEmpty
+          ? analysisDetails
+          : (isFraud ? 'Fraud detected by API' : 'Message appears safe'),
       redFlags: riskFactors,
       analyzedAt: DateTime.now(),
       additionalData: {
@@ -176,8 +183,10 @@ class FraudDetectionService extends GetxService {
   /// Determine fraud type from risk factors
   FraudType? _determineFraudType(List<String> riskFactors) {
     final factors = riskFactors.map((f) => f.toLowerCase()).toList();
-    
-    if (factors.any((f) => f.contains('personal information') || f.contains('phishing'))) {
+
+    if (factors.any(
+      (f) => f.contains('personal information') || f.contains('phishing'),
+    )) {
       return FraudType.phishing;
     }
     if (factors.any((f) => f.contains('urgent') || f.contains('social'))) {
@@ -186,13 +195,17 @@ class FraudDetectionService extends GetxService {
     if (factors.any((f) => f.contains('sim') || f.contains('swap'))) {
       return FraudType.simSwap;
     }
-    if (factors.any((f) => f.contains('unauthorized') || f.contains('transfer'))) {
+    if (factors.any(
+      (f) => f.contains('unauthorized') || f.contains('transfer'),
+    )) {
       return FraudType.unauthorizedTransfer;
     }
-    if (factors.any((f) => f.contains('spoofing') || f.contains('impersonation'))) {
+    if (factors.any(
+      (f) => f.contains('spoofing') || f.contains('impersonation'),
+    )) {
       return FraudType.spoofing;
     }
-    
+
     return riskFactors.isNotEmpty ? FraudType.unknown : null;
   }
 
@@ -426,7 +439,10 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Batch analyze multiple messages
-  Future<List<FraudResult>> analyzeMessages(List<SmsMessage> messages, {String source = 'USER_SCAN'}) async {
+  Future<List<FraudResult>> analyzeMessages(
+    List<SmsMessage> messages, {
+    String source = 'USER_SCAN',
+  }) async {
     final List<FraudResult> results = [];
 
     for (SmsMessage message in messages) {

@@ -10,7 +10,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await LocalAuthDbService.init();
-  
+
   // Initialize background worker for SMS monitoring
   await BackgroundSmsWorker.initialize();
 
