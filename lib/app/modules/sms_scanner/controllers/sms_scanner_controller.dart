@@ -124,11 +124,11 @@ class SmsScannerController extends GetxController {
   /// Convert sms_advanced SmsMessage to our SmsMessage model
   SmsMessage _convertToOurSmsMessage(dynamic smsMessage) {
     return SmsMessage(
-      id: smsMessage.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      sender: smsMessage.sender ?? 'Unknown',
-      body: smsMessage.body ?? '',
-      timestamp: smsMessage.date ?? DateTime.now(),
-      address: smsMessage.address,
+      id: smsMessage.id?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      sender: smsMessage.sender ?? smsMessage.address ?? 'Unknown',
+      body: smsMessage.body ?? smsMessage.message ?? '',
+      timestamp: smsMessage.date ?? smsMessage.dateSent ?? DateTime.now(),
+      address: smsMessage.address ?? smsMessage.sender,
     );
   }
 
@@ -167,7 +167,7 @@ class SmsScannerController extends GetxController {
       List<SmsMessage> messages = [];
       
       try {
-        final List<SmsMessage> queriedMessages = await _smsQuery.querySms(
+        final queriedMessages = await _smsQuery.querySms(
           kinds: [SmsQueryKind.inbox],
           count: 50, // Get last 50 messages
         );

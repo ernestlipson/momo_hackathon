@@ -10,7 +10,18 @@ class SmsScannerView extends GetView<SmsScannerController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: const Text(
+          'SMS Fraud Scanner',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF7C3AED)),
+      ),
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -47,6 +58,7 @@ class SmsScannerView extends GetView<SmsScannerController> {
           ],
         ),
       ),
+      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
