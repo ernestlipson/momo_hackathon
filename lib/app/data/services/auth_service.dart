@@ -79,7 +79,7 @@ class AuthService extends GetxService {
       if (response != null &&
           response.statusCode == 200 &&
           response.data != null) {
-        final userData = response.data['user'] as Map<String, dynamic>?;
+        final userData = response.data['data']["user"] as Map<String, dynamic>?;
         if (userData != null) {
           await LocalAuthDbService.storeUserData(userData);
         }

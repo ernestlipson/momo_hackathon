@@ -1,11 +1,11 @@
-import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:momo_hackathon/app/data/models/api_article.dart';
 import 'package:momo_hackathon/app/data/models/fraud_detection_stats.dart';
-import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
-import 'package:momo_hackathon/app/data/services/news_service.dart';
 import 'package:momo_hackathon/app/data/services/api_article_service.dart';
 import 'package:momo_hackathon/app/data/services/fraud_detection_service.dart';
+import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
+import 'package:momo_hackathon/app/data/services/news_service.dart';
 
 class HomeController extends GetxController {
   // Services
@@ -100,6 +100,7 @@ class HomeController extends GetxController {
       statsError.value = null;
 
       final stats = await _fraudService.getStatsOverview();
+      Get.log('Stats Overview: $stats');
       if (stats != null) {
         fraudStats.value = stats;
         totalScan.value = stats.totalAnalyses;

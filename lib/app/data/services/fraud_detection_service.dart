@@ -16,10 +16,11 @@ class FraudDetectionService extends GetxService {
       final response = await _networkService.get(
         '/fraud-detection/stats/overview',
       );
+      Get.log('getStatsOverview response: ${response?.data["data"]}');
       if (response != null &&
           response.statusCode == 200 &&
           response.data != null) {
-        return FraudDetectionStats.fromJson(response.data);
+        return FraudDetectionStats.fromJson(response.data["data"]);
       }
       return null;
     } catch (e) {

@@ -453,7 +453,7 @@ class HomeView extends GetView<HomeController> {
                 title: 'Last Analysis',
                 value: stats.lastAnalysisDisplay,
                 icon: Icons.access_time_outlined,
-                color: Colors.redAccent,
+                color: Colors.orangeAccent,
               ),
             ),
           ],
@@ -541,7 +541,7 @@ class HomeView extends GetView<HomeController> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: color),
+              Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -560,7 +560,7 @@ class HomeView extends GetView<HomeController> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: color,
             ),

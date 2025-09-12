@@ -153,10 +153,7 @@ class DetailedStatsController extends GetxController {
 
   /// Refresh all data
   Future<void> refreshAllData() async {
-    await Future.wait([
-      loadDetailedStats(),
-      loadChartData(),
-    ]);
+    await Future.wait([loadDetailedStats(), loadChartData()]);
 
     Get.snackbar(
       'Data Refreshed',
@@ -203,7 +200,8 @@ class DetailedStatsController extends GetxController {
       // Generate PDF export data
       final exportData = _generatePdfExport();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'fraud_detection_report_${selectedReportTemplate.value.toLowerCase().replaceAll(' ', '_')}_$timestamp.pdf';
+      final fileName =
+          'fraud_detection_report_${selectedReportTemplate.value.toLowerCase().replaceAll(' ', '_')}_$timestamp.pdf';
 
       exportProgress.value = 0.6;
       await Future.delayed(const Duration(milliseconds: 500));
@@ -244,10 +242,10 @@ class DetailedStatsController extends GetxController {
   String _generatePdfExport() {
     final stats = detailedStats.value;
     final cleanTransactions = stats.totalAnalyses - stats.fraudDetected;
-    
+
     // Generate comprehensive PDF content (simulated as text for now)
     final buffer = StringBuffer();
-    
+
     // Header
     buffer.writeln('FRAUD DETECTION REPORT');
     buffer.writeln('Generated: ${DateTime.now().toString()}');
@@ -255,7 +253,7 @@ class DetailedStatsController extends GetxController {
     buffer.writeln('Time Range: ${selectedTimeRange.value}');
     buffer.writeln('=' * 50);
     buffer.writeln();
-    
+
     // Executive Summary
     buffer.writeln('EXECUTIVE SUMMARY');
     buffer.writeln('-' * 20);
@@ -263,9 +261,11 @@ class DetailedStatsController extends GetxController {
     buffer.writeln('Fraud Detected: ${stats.fraudDetected}');
     buffer.writeln('Fraud Rate: ${stats.fraudRate.toStringAsFixed(2)}%');
     buffer.writeln('Clean Transactions: $cleanTransactions');
-    buffer.writeln('Average Confidence: ${stats.averageConfidence.toStringAsFixed(2)}%');
+    buffer.writeln(
+      'Average Confidence: ${stats.averageConfidence.toStringAsFixed(2)}%',
+    );
     buffer.writeln();
-    
+
     // Breakdown by Analysis Type
     buffer.writeln('ANALYSIS BREAKDOWN');
     buffer.writeln('-' * 20);
@@ -274,52 +274,70 @@ class DetailedStatsController extends GetxController {
     buffer.writeln('User Scan: ${stats.userScanCount}');
     buffer.writeln('Background Scan: ${stats.backgroundScanCount}');
     buffer.writeln();
-    
+
     // Risk Distribution (calculated from available data)
     buffer.writeln('ANALYSIS DISTRIBUTION');
     buffer.writeln('-' * 21);
-    final textPercent = (stats.textAnalysisCount / stats.totalAnalyses * 100).toStringAsFixed(1);
-    final imagePercent = (stats.imageAnalysisCount / stats.totalAnalyses * 100).toStringAsFixed(1);
-    final userPercent = (stats.userScanCount / stats.totalAnalyses * 100).toStringAsFixed(1);
-    final backgroundPercent = (stats.backgroundScanCount / stats.totalAnalyses * 100).toStringAsFixed(1);
-    
+    final textPercent = (stats.textAnalysisCount / stats.totalAnalyses * 100)
+        .toStringAsFixed(1);
+    final imagePercent = (stats.imageAnalysisCount / stats.totalAnalyses * 100)
+        .toStringAsFixed(1);
+    final userPercent = (stats.userScanCount / stats.totalAnalyses * 100)
+        .toStringAsFixed(1);
+    final backgroundPercent =
+        (stats.backgroundScanCount / stats.totalAnalyses * 100).toStringAsFixed(
+          1,
+        );
+
     buffer.writeln('Text Analysis: $textPercent%');
     buffer.writeln('Image Analysis: $imagePercent%');
     buffer.writeln('User Scans: $userPercent%');
     buffer.writeln('Background Scans: $backgroundPercent%');
     buffer.writeln();
-    
+
     if (includeCharts.value) {
       buffer.writeln('CHARTS & VISUALIZATIONS');
       buffer.writeln('-' * 25);
-      buffer.writeln('[Chart Data - Visual representations would be embedded here]');
+      buffer.writeln(
+        '[Chart Data - Visual representations would be embedded here]',
+      );
       buffer.writeln();
     }
-    
+
     if (includeDetailedBreakdown.value) {
       buffer.writeln('DETAILED ANALYSIS');
       buffer.writeln('-' * 18);
       buffer.writeln('Performance Metrics:');
-      buffer.writeln('- Average Confidence Score: ${stats.averageConfidence.toStringAsFixed(2)}%');
-      buffer.writeln('- Detection Accuracy: ${stats.averageConfidence.toStringAsFixed(2)}%');
-      buffer.writeln('- Clean Transaction Rate: ${(100 - stats.fraudRate).toStringAsFixed(2)}%');
-      buffer.writeln('- Last Analysis: ${stats.lastAnalysisAt?.toString() ?? 'N/A'}');
+      buffer.writeln(
+        '- Average Confidence Score: ${stats.averageConfidence.toStringAsFixed(2)}%',
+      );
+      buffer.writeln(
+        '- Detection Accuracy: ${stats.averageConfidence.toStringAsFixed(2)}%',
+      );
+      buffer.writeln(
+        '- Clean Transaction Rate: ${(100 - stats.fraudRate).toStringAsFixed(2)}%',
+      );
+      buffer.writeln(
+        '- Last Analysis: ${stats.lastAnalysisAt?.toString() ?? 'N/A'}',
+      );
       buffer.writeln();
     }
-    
+
     if (includeTimeRange.value) {
       buffer.writeln('TIME RANGE ANALYSIS');
       buffer.writeln('-' * 20);
       buffer.writeln('Data Period: ${selectedTimeRange.value}');
-      buffer.writeln('Trend Analysis: [Historical trend data would be included here]');
+      buffer.writeln(
+        'Trend Analysis: [Historical trend data would be included here]',
+      );
       buffer.writeln();
     }
-    
+
     // Footer
     buffer.writeln('=' * 50);
     buffer.writeln('Report generated by MoMo Fraud Detection System');
     buffer.writeln('Confidential - For Internal Use Only');
-    
+
     return buffer.toString();
   }
 
