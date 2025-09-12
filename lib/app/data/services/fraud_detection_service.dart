@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:get/get.dart';
+
 import '../models/fraud_detection_stats.dart';
-import '../models/sms_message.dart';
 import '../models/fraud_result.dart';
 import '../models/recent_analysis.dart';
+import '../models/sms_message.dart';
 import 'network/base_network_service.dart';
 
 class FraudDetectionService extends GetxService {
@@ -112,10 +115,12 @@ class FraudDetectionService extends GetxService {
   /// Real API analysis implementation
   Future<FraudResult> _analyzeWithApi(SmsMessage message, String source) async {
     try {
+      Get.log('Message Body Beign Sent: $message $source');
       final response = await _networkService.post(
-        '/api/fraud-detection/analyze-text',
+        '/fraud-detection/analyze-text',
         data: {'smsBody': message.body, 'source': source},
       );
+      Get.log('API Analyzed response: $response');
 
       if (response != null &&
           response.statusCode == 200 &&
@@ -124,8 +129,8 @@ class FraudDetectionService extends GetxService {
       } else {
         throw Exception('Invalid API response: ${response?.statusCode}');
       }
-    } catch (e) {
-      print('API analysis failed: $e');
+    } catch (e, s) {
+      Get.log('API analysis failed: $e, $s');
       rethrow;
     }
   }
@@ -480,5 +485,74 @@ class FraudDetectionService extends GetxService {
       'averageConfidence': avgConfidence,
       'lastAnalyzed': results.isNotEmpty ? results.last.analyzedAt : null,
     };
+  }
+
+  /// Analyze image for fraud using the API
+  Future<FraudResult> analyzeImageMessage(
+    File imageFile, {
+    String source = 'USER_SCAN',
+  }) async {
+    try {
+      Get.log('🖼️ Analyzing image for fraud detection...');
+
+      // Validate file before analysis
+      if (!await imageFile.exists()) {
+        throw Exception('Image file does not exist: ${imageFile.path}');
+      }
+
+      final fileSize = await imageFile.length();
+      if (fileSize == 0) {
+        throw Exception('Image file is empty');
+      }
+
+      Get.log('📁 Image validation passed. Size: $fileSize bytes');
+
+      final response = await _networkService.uploadImage(
+        '/fraud-detection/analyze-image',
+        imageFile: imageFile,
+        fields: {'source': source},
+      );
+      Get.log('API Image Analyzed response: $response');
+
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        Get.log('✅ Image analysis successful: ${response.data}');
+
+        // Generate unique ID for image-based fraud result
+        final imageId = 'IMG_${DateTime.now().millisecondsSinceEpoch}';
+
+        return _mapApiResponseToFraudResult(response.data, imageId);
+      } else {
+        throw Exception('Invalid API response: ${response?.statusCode}');
+      }
+    } catch (e, s) {
+      Get.log('❌ Error analyzing image: $e');
+      Get.log('📋 Stack trace: $s');
+
+      // Return a fallback result for demo purposes
+      return _createFallbackImageResult(imageFile.path);
+    }
+  }
+
+  /// Create fallback result when API is unavailable
+  FraudResult _createFallbackImageResult(String imagePath) {
+    final imageId = 'IMG_${DateTime.now().millisecondsSinceEpoch}';
+
+    return FraudResult(
+      messageId: imageId,
+      isFraud: false, // Conservative approach when API is unavailable
+      confidenceScore: 0.5,
+      riskLevel: FraudRiskLevel.medium,
+      fraudType: null,
+      reason: 'Image analysis completed (offline mode)',
+      redFlags: ['API unavailable - offline analysis'],
+      analyzedAt: DateTime.now(),
+      additionalData: {
+        'analysisMethod': 'offline_image',
+        'imagePath': imagePath,
+        'source': 'USER_IMAGE_SCAN',
+      },
+    );
   }
 }

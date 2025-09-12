@@ -78,7 +78,7 @@ class LoginController extends GetxController {
     try {
       final loginRequest = LoginRequest(
         email: emailController.text.trim(),
-        password: passwordController.text,
+        password: passwordController.text.trim(),
       );
       final loginResponse = await _authService.login(loginRequest);
       if (loginResponse != null) {
@@ -103,7 +103,6 @@ class LoginController extends GetxController {
         );
       }
     } catch (e) {
-      print('❌ Unexpected login error: $e');
       Get.snackbar(
         'Login Error',
         'An unexpected error occurred. Please try again.',

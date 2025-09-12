@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../controllers/sms_scanner_controller.dart';
+
 import '../../../data/models/fraud_result.dart';
+import '../controllers/sms_scanner_controller.dart';
 
 class SmsScannerView extends GetView<SmsScannerController> {
   const SmsScannerView({super.key});
@@ -55,7 +56,7 @@ class SmsScannerView extends GetView<SmsScannerController> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -71,7 +72,7 @@ class SmsScannerView extends GetView<SmsScannerController> {
 
                     // Scan Control
                     _buildScanControl(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
                     // Recent Results
                     _buildRecentResults(),
@@ -168,11 +169,15 @@ class SmsScannerView extends GetView<SmsScannerController> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: _buildStatCard(
-              title: 'Fraud Detected',
-              value: controller.fraudDetected.value.toString(),
-              icon: Icons.warning,
-              color: Colors.red,
+            child: GestureDetector(
+              onTap: () => Get.toNamed('/fraud-messages'),
+              child: _buildStatCard(
+                title: 'Fraud Detected',
+                value: controller.fraudDetected.value.toString(),
+                icon: Icons.warning,
+                color: Colors.red,
+                isClickable: true,
+              ),
             ),
           ),
         ],
@@ -185,6 +190,7 @@ class SmsScannerView extends GetView<SmsScannerController> {
     required String value,
     required IconData icon,
     required Color color,
+    bool isClickable = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -200,13 +206,25 @@ class SmsScannerView extends GetView<SmsScannerController> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Icon(icon, color: color, size: 24),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+              Row(
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                  if (isClickable) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: color.withOpacity(0.7),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -238,13 +256,28 @@ class SmsScannerView extends GetView<SmsScannerController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Fraud Detection Control',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Fraud Detection Control',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              // Camera scan icon
+              IconButton(
+                onPressed: _showImageScanOptions,
+                icon: const Icon(
+                  Icons.camera_alt,
+                  color: Color(0xFF7C3AED),
+                  size: 24,
+                ),
+                tooltip: 'Scan Image',
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Obx(
@@ -317,6 +350,118 @@ class SmsScannerView extends GetView<SmsScannerController> {
     );
   }
 
+  void _showImageScanOptions() {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            const Text(
+              'Scan Image for Fraud',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose how you want to add an image for fraud analysis',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+
+            // Camera option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: Color(0xFF7C3AED),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Take Photo',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              subtitle: const Text('Use camera to capture an image'),
+              onTap: () {
+                Get.back();
+                _handleCameraCapture();
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            // Upload option
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.photo_library,
+                  color: Color(0xFF7C3AED),
+                  size: 24,
+                ),
+              ),
+              title: const Text(
+                'Upload Image',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              subtitle: const Text('Select from gallery'),
+              onTap: () {
+                Get.back();
+                _handleImageUpload();
+              },
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  void _handleCameraCapture() {
+    controller.captureImageFromCamera();
+  }
+
+  void _handleImageUpload() {
+    controller.uploadImageFromGallery();
+  }
+
   Widget _buildRecentResults() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,24 +469,30 @@ class SmsScannerView extends GetView<SmsScannerController> {
         const Text(
           'Recent Analysis',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 16),
-        Obx(() {
-          if (controller.fraudResults.isEmpty) {
-            return _buildEmptyState();
-          }
+        SizedBox(
+          height: 400, // Fixed height for the scrollable area
+          child: Obx(() {
+            if (controller.fraudResults.isEmpty) {
+              return _buildEmptyState();
+            }
 
-          return Column(
-            children: controller.fraudResults
-                .take(10) // Show last 10 results
-                .map((result) => _buildResultCard(result))
-                .toList(),
-          );
-        }),
+            return ListView.builder(
+              physics: BouncingScrollPhysics(),
+              padding: EdgeInsets.symmetric(vertical: 12),
+              itemCount: controller.fraudResults.length > 10
+                  ? 10
+                  : controller.fraudResults.length,
+              itemBuilder: (context, index) {
+                return _buildResultCard(controller.fraudResults[index]);
+              },
+            );
+          }),
+        ),
       ],
     );
   }
@@ -413,13 +564,13 @@ class SmsScannerView extends GetView<SmsScannerController> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getRiskColor(result.riskLevel),
+                  color: result.isFraud ? Colors.red : Colors.green,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  result.riskLevelText,
+                  result.isFraud ? 'FRAUD' : 'NOT FRAUD',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: Colors.white,
                   ),
@@ -480,65 +631,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Color _getRiskColor(FraudRiskLevel level) {
-    switch (level) {
-      case FraudRiskLevel.low:
-        return Colors.green;
-      case FraudRiskLevel.medium:
-        return Colors.orange;
-      case FraudRiskLevel.high:
-        return Colors.red;
-      case FraudRiskLevel.critical:
-        return Colors.purple;
-    }
-  }
-
-  Widget _buildBottomNavigation() {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Obx(
-        () => BottomNavigationBar(
-          currentIndex: controller.selectedNavIndex.value,
-          onTap: controller.onNavItemTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: const Color(0xFF7C3AED),
-          unselectedItemColor: Colors.grey[400],
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_outlined),
-              activeIcon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
-        ),
       ),
     );
   }

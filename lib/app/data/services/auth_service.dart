@@ -1,9 +1,10 @@
 import 'package:get/get.dart';
 import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
-import '../models/signup_request.dart';
-import '../models/signup_response.dart';
+
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/signup_request.dart';
+import '../models/signup_response.dart';
 import 'network/base_network_service.dart';
 
 /// Authentication service for user registration and login
@@ -28,7 +29,7 @@ class AuthService extends GetxService {
         '/auth/register',
         data: request.toJson(),
       );
-      Get.log('🔵 Register response: ${response?.data}');
+      Get.log('🔵 Register response: $response req: ${request.toJson()}');
       if (response != null &&
           response.statusCode == 201 &&
           response.data != null) {
@@ -53,7 +54,9 @@ class AuthService extends GetxService {
         '/auth/login',
         data: request.toJson(),
       );
-      Get.log('🔵 Login response: ${response?.data}');
+      Get.log(
+        '🔵 Login response: $response req: ${request.toJson()} ${response?.statusCode} ${response?.headers}',
+      );
       if (response != null &&
           response.statusCode == 200 &&
           response.data != null) {

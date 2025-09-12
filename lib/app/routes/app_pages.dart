@@ -11,6 +11,8 @@ import '../modules/settings/bindings/settings_binding.dart';
 import '../modules/settings/views/settings_view.dart';
 import '../modules/sms_scanner/bindings/sms_scanner_binding.dart';
 import '../modules/sms_scanner/views/sms_scanner_view.dart';
+import '../modules/fraud_messages/bindings/fraud_messages_binding.dart';
+import '../modules/fraud_messages/views/fraud_messages_view.dart';
 import '../modules/news_detail/bindings/news_detail_binding.dart';
 import '../modules/news_detail/views/news_detail_view.dart';
 import '../modules/detailed_stats/bindings/detailed_stats_binding.dart';
@@ -57,6 +59,11 @@ class AppPages {
       name: _Paths.SMS_SCANNER,
       page: () => const SmsScannerView(),
       binding: SmsScannerBinding(),
+    ),
+    GetPage(
+      name: _Paths.FRAUD_MESSAGES,
+      page: () => const FraudMessagesView(),
+      binding: FraudMessagesBinding(),
     ),
     GetPage(
       name: _Paths.NEWS_DETAIL,

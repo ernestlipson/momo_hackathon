@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     
+    <!-- Camera and Storage Permissions for Image Analysis -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    
     <!-- Internet permission for API calls -->
     <uses-permission android:name="android.permission.INTERNET" />
     

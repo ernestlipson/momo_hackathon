@@ -1,16 +1,19 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:another_telephony/telephony.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:another_telephony/telephony.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-import '../../../data/models/sms_message.dart' as app_models;
 import '../../../data/models/fraud_result.dart';
+import '../../../data/models/sms_message.dart' as app_models;
+import '../../../data/services/background_sms_worker.dart';
 import '../../../data/services/fraud_detection_service.dart';
 import '../../../data/services/sms_listener_service.dart';
-import '../../../data/services/background_sms_worker.dart';
 
 class SmsScannerController extends GetxController {
   // Services
@@ -46,6 +49,7 @@ class SmsScannerController extends GetxController {
     super.onReady();
     if (hasPermission.value) {
       _initializeBackgroundMonitoring();
+      _setupSmsListener();
     }
   }
 
@@ -57,6 +61,20 @@ class SmsScannerController extends GetxController {
 
   void _initializeStorage() {
     GetStorage.init();
+  }
+
+  /// Setup SMS listener using another_telephony package
+  void _setupSmsListener() {
+    try {
+      // Listen for incoming SMS messages
+      telephony.listenIncomingSms(
+        onNewMessage: _handleIncomingSms,
+        onBackgroundMessage: _handleIncomingSms,
+      );
+      print('📱 SMS listener setup complete');
+    } catch (e) {
+      print('❌ Error setting up SMS listener: $e');
+    }
   }
 
   /// Check and request SMS permissions
@@ -82,6 +100,7 @@ class SmsScannerController extends GetxController {
         backgroundColor: Colors.green.withOpacity(0.8),
         colorText: Colors.white,
       );
+      _setupSmsListener();
       _startBackgroundMonitoring();
     } else {
       Get.snackbar(
@@ -171,26 +190,39 @@ class SmsScannerController extends GetxController {
     });
   }
 
-  /// Handle incoming SMS messages (disabled in demo mode)
-  // void _handleIncomingSms(SmsMessage message) async {
-  //   // Only process mobile money transactions
-  //   if (!message.isMobileMoneyTransaction) return;
-  //
-  //   print('💰 Mobile money SMS detected: ${message.sender}');
-  //
-  //   // Add to scanned messages
-  //   scannedMessages.insert(0, message);
-  //   totalScanned.value++;
-  //
-  //   // Analyze for fraud
-  //   await _analyzeMessage(message);
-  //
-  //   // Save to storage
-  //   _saveToStorage();
-  //
-  //   // Update last scan time
-  //   lastScanTime.value = DateTime.now();
-  // }
+  /// Handle incoming SMS messages from another_telephony package
+  void _handleIncomingSms(SmsMessage smsMessage) async {
+    // Convert to our app's SmsMessage model
+    final message = app_models.SmsMessage(
+      id:
+          smsMessage.id?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      sender: smsMessage.address ?? 'Unknown',
+      body: smsMessage.body ?? '',
+      timestamp: smsMessage.date != null
+          ? DateTime.fromMillisecondsSinceEpoch(smsMessage.date!)
+          : DateTime.now(),
+      address: smsMessage.address,
+    );
+
+    // Only process mobile money transactions
+    if (!message.isMobileMoneyTransaction) return;
+
+    print('💰 Mobile money SMS detected: ${message.sender}');
+
+    // Add to scanned messages
+    scannedMessages.insert(0, message);
+    totalScanned.value++;
+
+    // Analyze for fraud
+    await _analyzeMessage(message);
+
+    // Save to storage
+    _saveToStorage();
+
+    // Update last scan time
+    lastScanTime.value = DateTime.now();
+  }
 
   /// Manually scan recent SMS messages
   Future<void> scanRecentMessages() async {
@@ -284,85 +316,18 @@ class SmsScannerController extends GetxController {
         message,
         source: 'USER_SCAN',
       );
+      Get.log('Analyzing message: $result');
       fraudResults.insert(0, result);
 
       if (result.isFraud) {
         fraudDetected.value++;
-        _showFraudAlert(message, result);
+        // _showFraudAlert(message, result);
       }
     } catch (e) {
       print('Error analyzing message: $e');
     } finally {
       isAnalyzing.value = false;
     }
-  }
-
-  /// Show fraud alert to user
-  void _showFraudAlert(app_models.SmsMessage message, FraudResult result) {
-    Get.dialog(
-      AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.red, size: 28),
-            const SizedBox(width: 8),
-            const Text('Fraud Alert!'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Suspicious message detected from ${message.sender}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text('Risk Level: ${result.riskLevelText}'),
-            Text(
-              'Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%',
-            ),
-            if (result.reason != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Reason: ${result.reason}',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                message.body,
-                style: const TextStyle(fontSize: 12),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Dismiss')),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              Get.toNamed('/sms-scanner');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-            ),
-            child: const Text(
-              'View Details',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
   }
 
   /// Get fraud statistics
@@ -522,5 +487,221 @@ class SmsScannerController extends GetxController {
         colorText: Colors.white,
       );
     }
+  }
+
+  /// Handle camera capture for image fraud analysis
+  Future<void> captureImageFromCamera() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80, // Compress for faster upload
+        maxWidth: 1920, // Limit resolution to prevent memory issues
+        maxHeight: 1080,
+      );
+
+      if (image != null) {
+        Get.log('📱 Image captured: ${image.path}');
+
+        // Verify file exists and is readable
+        final file = File(image.path);
+        if (!await file.exists()) {
+          throw Exception('Captured image file does not exist');
+        }
+
+        final fileSize = await file.length();
+        Get.log('📁 Image file size: $fileSize bytes');
+
+        if (fileSize == 0) {
+          throw Exception('Captured image file is empty');
+        }
+
+        await _analyzeImage(file);
+      } else {
+        Get.log('📱 No image was captured');
+      }
+    } catch (e, stackTrace) {
+      Get.log('❌ Camera capture error: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Camera Error',
+        'Failed to capture image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  /// Handle image upload from gallery
+  Future<void> uploadImageFromGallery() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80, // Compress for faster upload
+        maxWidth: 1920, // Limit resolution to prevent memory issues
+        maxHeight: 1080,
+      );
+
+      if (image != null) {
+        Get.log('📱 Image selected from gallery: ${image.path}');
+
+        // Verify file exists and is readable
+        final file = File(image.path);
+        if (!await file.exists()) {
+          throw Exception('Selected image file does not exist');
+        }
+
+        final fileSize = await file.length();
+        Get.log('📁 Image file size: $fileSize bytes');
+
+        if (fileSize == 0) {
+          throw Exception('Selected image file is empty');
+        }
+
+        await _analyzeImage(file);
+      } else {
+        Get.log('📱 No image was selected');
+      }
+    } catch (e, stackTrace) {
+      Get.log('❌ Gallery upload error: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Upload Error',
+        'Failed to upload image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  /// Analyze image for fraud detection
+  Future<void> _analyzeImage(File imageFile) async {
+    try {
+      isAnalyzing.value = true;
+      Get.log('🖼️ Starting image analysis for: ${imageFile.path}');
+
+      // Double-check file exists and is readable
+      if (!await imageFile.exists()) {
+        throw Exception('Image file no longer exists: ${imageFile.path}');
+      }
+
+      final fileSize = await imageFile.length();
+      Get.log('📁 Image file size: $fileSize bytes');
+
+      if (fileSize == 0) {
+        throw Exception('Image file is empty');
+      }
+
+      // Validate image file extension
+      final extension = imageFile.path.toLowerCase();
+      if (!extension.endsWith('.jpg') &&
+          !extension.endsWith('.jpeg') &&
+          !extension.endsWith('.png')) {
+        Get.log('⚠️ Warning: Unusual image extension: $extension');
+      }
+
+      Get.log('🔍 Calling fraud detection service...');
+      final result = await _fraudService.analyzeImageMessage(
+        imageFile,
+        source: 'USER_SCAN',
+      );
+      Get.log('✅ Analysis complete: ${result.isFraud ? "FRAUD" : "SAFE"}');
+
+      // Add result to fraud results list
+      fraudResults.insert(0, result);
+      totalScanned.value++;
+
+      if (result.isFraud) {
+        fraudDetected.value++;
+        _showImageFraudAlert(result);
+      } else {
+        Get.snackbar(
+          'Analysis Complete',
+          'Image analysis complete. No fraud detected.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      }
+
+      // Update last scan time and save data
+      lastScanTime.value = DateTime.now();
+      _saveToStorage();
+
+      Get.log('💾 Data saved successfully');
+    } catch (e, stackTrace) {
+      Get.log('❌ Error analyzing image: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Analysis Error',
+        'Failed to analyze image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    } finally {
+      isAnalyzing.value = false;
+      Get.log('🏁 Image analysis process completed');
+    }
+  }
+
+  /// Show fraud alert for image analysis
+  void _showImageFraudAlert(FraudResult result) {
+    Get.dialog(
+      AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red, size: 28),
+            SizedBox(width: 12),
+            Text('Fraud Detected in Image'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(result.reason ?? 'Fraudulent content detected'),
+            if (result.redFlags.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Red Flags:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              ...result.redFlags.map((flag) => Text('• $flag')),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('OK')),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              Get.toNamed('/fraud-messages');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+            ),
+            child: const Text(
+              'View All Fraud',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

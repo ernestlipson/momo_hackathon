@@ -7,6 +7,7 @@ abstract class Routes {
   static const HISTORY = _Paths.HISTORY;
   static const SETTINGS = _Paths.SETTINGS;
   static const SMS_SCANNER = _Paths.SMS_SCANNER;
+  static const FRAUD_MESSAGES = _Paths.FRAUD_MESSAGES;
   static const NEWS_DETAIL = _Paths.NEWS_DETAIL;
   static const ARTICLE_DETAIL = _Paths.ARTICLE_DETAIL;
   static const DETAILED_STATS = _Paths.DETAILED_STATS;
@@ -23,6 +24,7 @@ abstract class _Paths {
   static const HISTORY = '/history';
   static const SETTINGS = '/settings';
   static const SMS_SCANNER = '/sms-scanner';
+  static const FRAUD_MESSAGES = '/fraud-messages';
   static const NEWS_DETAIL = '/news-detail';
   static const ARTICLE_DETAIL = '/article-detail';
   static const DETAILED_STATS = '/detailed-stats';
