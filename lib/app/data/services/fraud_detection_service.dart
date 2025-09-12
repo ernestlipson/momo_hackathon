@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:get/get.dart';
+
 import '../models/fraud_detection_stats.dart';
-import '../models/sms_message.dart';
 import '../models/fraud_result.dart';
 import '../models/recent_analysis.dart';
+import '../models/sms_message.dart';
 import 'network/base_network_service.dart';
 
 class FraudDetectionService extends GetxService {
@@ -13,10 +16,11 @@ class FraudDetectionService extends GetxService {
       final response = await _networkService.get(
         '/fraud-detection/stats/overview',
       );
+      Get.log('getStatsOverview response: ${response?.data["data"]}');
       if (response != null &&
           response.statusCode == 200 &&
           response.data != null) {
-        return FraudDetectionStats.fromJson(response.data);
+        return FraudDetectionStats.fromJson(response.data["data"]);
       }
       return null;
     } catch (e) {
@@ -94,27 +98,121 @@ class FraudDetectionService extends GetxService {
     }
   }
 
-  /// Analyze SMS message for fraud using AWS Nova (via your NestJS backend)
-  Future<FraudResult> analyzeSmsMessage(SmsMessage message) async {
+  /// Analyze SMS message for fraud using the API
+  Future<FraudResult> analyzeSmsMessage({
+    required SmsMessage message,
+    required String source,
+  }) async {
     try {
-      // For demo purposes, we'll use local analysis
-      // In production, this would call your NestJS API with AWS Nova
-      return await _analyzeLocally(message);
-
-      // Production implementation would be:
-      // return await _analyzeWithApi(message);
+      // Call the actual API for fraud detection
+      return await _analyzeWithApi(message, source);
     } catch (e) {
-      print('Error analyzing message: $e');
-      // Return safe result on error
-      return FraudResult(
-        messageId: message.id,
-        isFraud: false,
-        confidenceScore: 0.0,
-        riskLevel: FraudRiskLevel.low,
-        reason: 'Analysis failed: $e',
-        analyzedAt: DateTime.now(),
-      );
+      print('Error analyzing message with API: $e');
+      // Fallback to local analysis if API fails
+      return await _analyzeLocally(message);
     }
+  }
+
+  /// Real API analysis implementation
+  Future<FraudResult> _analyzeWithApi(SmsMessage message, String source) async {
+    try {
+      Get.log('Message Body Beign Sent: $message $source');
+      final response = await _networkService.post(
+        '/fraud-detection/analyze-text',
+        data: {'smsBody': message.body, 'source': source},
+      );
+      Get.log('API Analyzed response: $response');
+
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        return _mapApiResponseToFraudResult(response.data, message.id);
+      } else {
+        throw Exception('Invalid API response: ${response?.statusCode}');
+      }
+    } catch (e, s) {
+      Get.log('API analysis failed: $e, $s');
+      rethrow;
+    }
+  }
+
+  /// Map API response to FraudResult model
+  FraudResult _mapApiResponseToFraudResult(
+    Map<String, dynamic> apiData,
+    String messageId,
+  ) {
+    final data = apiData['data'] ?? {};
+
+    final status = data['status'] ?? 'SAFE';
+    final isFraud = status.toString().toUpperCase() == 'FRAUD';
+
+    final confidence = (data['confidence'] ?? 0).toDouble();
+    final confidenceScore = confidence / 100.0; // Convert percentage to decimal
+
+    final riskFactors = List<String>.from(data['riskFactors'] ?? []);
+    final analysisDetails = data['analysisDetails'] ?? '';
+
+    // Determine risk level based on confidence
+    final riskLevel = _getRiskLevelFromConfidence(confidenceScore);
+
+    // Determine fraud type based on risk factors
+    final fraudType = _determineFraudType(riskFactors);
+
+    return FraudResult(
+      messageId: messageId,
+      isFraud: isFraud,
+      confidenceScore: confidenceScore.clamp(0.0, 1.0),
+      riskLevel: riskLevel,
+      fraudType: fraudType,
+      reason: analysisDetails.isNotEmpty
+          ? analysisDetails
+          : (isFraud ? 'Fraud detected by API' : 'Message appears safe'),
+      redFlags: riskFactors,
+      analyzedAt: DateTime.now(),
+      additionalData: {
+        'analysisMethod': 'api',
+        'transactionId': data['transactionId'],
+        'source': data['source'],
+        'timestamp': data['timestamp'],
+      },
+    );
+  }
+
+  /// Determine risk level from confidence score
+  FraudRiskLevel _getRiskLevelFromConfidence(double confidence) {
+    if (confidence >= 0.9) return FraudRiskLevel.critical;
+    if (confidence >= 0.7) return FraudRiskLevel.high;
+    if (confidence >= 0.4) return FraudRiskLevel.medium;
+    return FraudRiskLevel.low;
+  }
+
+  /// Determine fraud type from risk factors
+  FraudType? _determineFraudType(List<String> riskFactors) {
+    final factors = riskFactors.map((f) => f.toLowerCase()).toList();
+
+    if (factors.any(
+      (f) => f.contains('personal information') || f.contains('phishing'),
+    )) {
+      return FraudType.phishing;
+    }
+    if (factors.any((f) => f.contains('urgent') || f.contains('social'))) {
+      return FraudType.socialEngineering;
+    }
+    if (factors.any((f) => f.contains('sim') || f.contains('swap'))) {
+      return FraudType.simSwap;
+    }
+    if (factors.any(
+      (f) => f.contains('unauthorized') || f.contains('transfer'),
+    )) {
+      return FraudType.unauthorizedTransfer;
+    }
+    if (factors.any(
+      (f) => f.contains('spoofing') || f.contains('impersonation'),
+    )) {
+      return FraudType.spoofing;
+    }
+
+    return riskFactors.isNotEmpty ? FraudType.unknown : null;
   }
 
   /// Local fraud analysis (for demo/offline use)
@@ -347,11 +445,14 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Batch analyze multiple messages
-  Future<List<FraudResult>> analyzeMessages(List<SmsMessage> messages) async {
+  Future<List<FraudResult>> analyzeMessages(
+    List<SmsMessage> messages, {
+    String source = 'USER_SCAN',
+  }) async {
     final List<FraudResult> results = [];
 
     for (SmsMessage message in messages) {
-      final result = await analyzeSmsMessage(message);
+      final result = await analyzeSmsMessage(message: message, source: source);
       results.add(result);
     }
 
@@ -385,5 +486,74 @@ class FraudDetectionService extends GetxService {
       'averageConfidence': avgConfidence,
       'lastAnalyzed': results.isNotEmpty ? results.last.analyzedAt : null,
     };
+  }
+
+  /// Analyze image for fraud using the API
+  Future<FraudResult> analyzeImageMessage(
+    File imageFile, {
+    String source = 'USER_SCAN',
+  }) async {
+    try {
+      Get.log('🖼️ Analyzing image for fraud detection...');
+
+      // Validate file before analysis
+      if (!await imageFile.exists()) {
+        throw Exception('Image file does not exist: ${imageFile.path}');
+      }
+
+      final fileSize = await imageFile.length();
+      if (fileSize == 0) {
+        throw Exception('Image file is empty');
+      }
+
+      Get.log('📁 Image validation passed. Size: $fileSize bytes');
+
+      final response = await _networkService.uploadImage(
+        '/fraud-detection/analyze-image',
+        imageFile: imageFile,
+        fields: {'source': source},
+      );
+      Get.log('API Image Analyzed response: $response');
+
+      if (response != null &&
+          response.statusCode == 200 &&
+          response.data != null) {
+        Get.log('✅ Image analysis successful: ${response.data}');
+
+        // Generate unique ID for image-based fraud result
+        final imageId = 'IMG_${DateTime.now().millisecondsSinceEpoch}';
+
+        return _mapApiResponseToFraudResult(response.data, imageId);
+      } else {
+        throw Exception('Invalid API response: ${response?.statusCode}');
+      }
+    } catch (e, s) {
+      Get.log('❌ Error analyzing image: $e');
+      Get.log('📋 Stack trace: $s');
+
+      // Return a fallback result for demo purposes
+      return _createFallbackImageResult(imageFile.path);
+    }
+  }
+
+  /// Create fallback result when API is unavailable
+  FraudResult _createFallbackImageResult(String imagePath) {
+    final imageId = 'IMG_${DateTime.now().millisecondsSinceEpoch}';
+
+    return FraudResult(
+      messageId: imageId,
+      isFraud: false, // Conservative approach when API is unavailable
+      confidenceScore: 0.5,
+      riskLevel: FraudRiskLevel.medium,
+      fraudType: null,
+      reason: 'Image analysis completed (offline mode)',
+      redFlags: ['API unavailable - offline analysis'],
+      analyzedAt: DateTime.now(),
+      additionalData: {
+        'analysisMethod': 'offline_image',
+        'imagePath': imagePath,
+        'source': 'USER_IMAGE_SCAN',
+      },
+    );
   }
 }

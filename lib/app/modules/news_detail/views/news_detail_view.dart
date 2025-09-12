@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../controllers/news_detail_controller.dart';
 
 class NewsDetailView extends GetView<NewsDetailController> {
@@ -232,21 +233,25 @@ class NewsDetailView extends GetView<NewsDetailController> {
   Widget _buildImagePlaceholder() {
     return Container(
       color: const Color(0xFF7C3AED).withOpacity(0.1),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.article, size: 64, color: Color(0xFF7C3AED)),
-            SizedBox(height: 12),
-            Text(
-              'News Article',
-              style: TextStyle(
-                color: Color(0xFF7C3AED),
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
+      child: SvgPicture.asset(
+        'assets/svg/Placeholder_view_vector.svg',
+        fit: BoxFit.cover,
+        placeholderBuilder: (context) => const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.article, size: 64, color: Color(0xFF7C3AED)),
+              SizedBox(height: 12),
+              Text(
+                'News Article',
+                style: TextStyle(
+                  color: Color(0xFF7C3AED),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

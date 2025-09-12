@@ -1,32 +1,46 @@
 import 'dart:async';
+import 'dart:io';
+
+import 'package:another_telephony/telephony.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:permission_handler/permission_handler.dart';
-// import 'package:sms_advanced/sms_advanced.dart'; // Temporarily disabled
 import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-import '../../../data/models/sms_message.dart';
 import '../../../data/models/fraud_result.dart';
+import '../../../data/models/sms_message.dart' as app_models;
+import '../../../data/services/background_sms_worker.dart';
 import '../../../data/services/fraud_detection_service.dart';
+import '../../../data/services/sms_listener_service.dart';
 
 class SmsScannerController extends GetxController {
   // Services
   final FraudDetectionService _fraudService = Get.find<FraudDetectionService>();
+  final SmsListenerService _smsListener = Get.find<SmsListenerService>();
   final GetStorage _storage = GetStorage();
+  final Telephony telephony = Telephony.instance;
+
+  // Background scan timer
+  Timer? _backgroundScanTimer;
 
   // Observables
   final isScanning = false.obs;
+  final isManualScanning = false.obs; // Track manual scan separately
   final hasPermission = false.obs;
-  final scannedMessages = <SmsMessage>[].obs;
+  final scannedMessages = <app_models.SmsMessage>[].obs;
   final fraudResults = <FraudResult>[].obs;
   final isAnalyzing = false.obs;
   final selectedNavIndex = 0.obs;
+  final isBackgroundMonitoring = false.obs;
+  final isBackgroundScanning = false.obs;
 
   // Statistics
   final totalScanned = 0.obs;
   final fraudDetected = 0.obs;
   final lastScanTime = Rxn<DateTime>();
+  final lastBackgroundScanTime = Rxn<DateTime>();
 
   @override
   void onInit() {
@@ -34,24 +48,51 @@ class SmsScannerController extends GetxController {
     _initializeStorage();
     _checkPermissions();
     _loadStoredData();
+
+    // Start auto background scanning when permissions are available
+    ever(hasPermission, (bool permission) {
+      if (permission) {
+        _initializeBackgroundMonitoring();
+        _setupSmsListener();
+        _startBackgroundScanning();
+      }
+    });
   }
 
   @override
   void onReady() {
     super.onReady();
+    // Auto-start background scanning if permissions are already granted
     if (hasPermission.value) {
-      _startBackgroundMonitoring();
+      _initializeBackgroundMonitoring();
+      _setupSmsListener();
+      _startBackgroundScanning();
     }
   }
 
   @override
   void onClose() {
-    // _smsSubscription?.cancel(); // Temporarily disabled
+    _backgroundScanTimer?.cancel();
+    _smsListener.stopListening();
     super.onClose();
   }
 
   void _initializeStorage() {
     GetStorage.init();
+  }
+
+  /// Setup SMS listener using another_telephony package
+  void _setupSmsListener() {
+    try {
+      // Listen for incoming SMS messages
+      telephony.listenIncomingSms(
+        onNewMessage: _handleIncomingSms,
+        onBackgroundMessage: _handleIncomingSms,
+      );
+      print('📱 SMS listener setup complete');
+    } catch (e) {
+      print('❌ Error setting up SMS listener: $e');
+    }
   }
 
   /// Check and request SMS permissions
@@ -77,7 +118,9 @@ class SmsScannerController extends GetxController {
         backgroundColor: Colors.green.withOpacity(0.8),
         colorText: Colors.white,
       );
+      _setupSmsListener();
       _startBackgroundMonitoring();
+      _startBackgroundScanning();
     } else {
       Get.snackbar(
         'Permission Required',
@@ -89,37 +132,116 @@ class SmsScannerController extends GetxController {
     }
   }
 
-  /// Start background SMS monitoring
-  void _startBackgroundMonitoring() {
+  /// Initialize background SMS monitoring
+  Future<void> _initializeBackgroundMonitoring() async {
     if (!hasPermission.value) return;
 
-    // Temporarily disabled - will implement with working SMS library
-    print('📱 Background SMS monitoring ready (demo mode)');
+    try {
+      // Initialize background worker
+      await BackgroundSmsWorker.initialize();
 
-    // For demo, create some sample data
-    _createSampleData();
+      // Check if background monitoring was previously enabled
+      final wasEnabled =
+          await BackgroundSmsWorker.isBackgroundMonitoringEnabled();
+      isBackgroundMonitoring.value = wasEnabled;
+
+      if (wasEnabled) {
+        await _startBackgroundMonitoring();
+      }
+
+      print('📱 Background monitoring initialized');
+    } catch (e) {
+      print('❌ Error initializing background monitoring: $e');
+    }
   }
 
-  /// Handle incoming SMS messages (disabled in demo mode)
-  // void _handleIncomingSms(SmsMessage message) async {
-  //   // Only process mobile money transactions
-  //   if (!message.isMobileMoneyTransaction) return;
-  //
-  //   print('💰 Mobile money SMS detected: ${message.sender}');
-  //
-  //   // Add to scanned messages
-  //   scannedMessages.insert(0, message);
-  //   totalScanned.value++;
-  //
-  //   // Analyze for fraud
-  //   await _analyzeMessage(message);
-  //
-  //   // Save to storage
-  //   _saveToStorage();
-  //
-  //   // Update last scan time
-  //   lastScanTime.value = DateTime.now();
-  // }
+  /// Start background SMS monitoring
+  Future<void> _startBackgroundMonitoring() async {
+    if (!hasPermission.value) return;
+
+    try {
+      // Start the SMS listener service
+      final started = await _smsListener.startListening();
+
+      if (started) {
+        // Start background worker
+        await BackgroundSmsWorker.startBackgroundMonitoring();
+        isBackgroundMonitoring.value = true;
+
+        print('📱 Background SMS monitoring started');
+
+        // Merge background results with controller results
+        _mergeBackgroundResults();
+      } else {
+        print('❌ Failed to start SMS listener');
+      }
+    } catch (e) {
+      print('❌ Error starting background monitoring: $e');
+    }
+  }
+
+  /// Merge background results with controller results
+  void _mergeBackgroundResults() {
+    // Listen to background results and merge them
+    ever(_smsListener.backgroundResults, (List<FraudResult> results) {
+      for (final result in results) {
+        // Add to fraud results if not already present
+        if (!fraudResults.any((r) => r.messageId == result.messageId)) {
+          fraudResults.insert(0, result);
+          if (result.isFraud) {
+            fraudDetected.value++;
+          }
+        }
+      }
+      _saveToStorage();
+    });
+
+    // Listen to incoming messages and merge them
+    ever(_smsListener.incomingMessages, (List<app_models.SmsMessage> messages) {
+      for (final message in messages) {
+        // Add to scanned messages if not already present
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.insert(0, message);
+          totalScanned.value++;
+        }
+      }
+      _saveToStorage();
+    });
+  }
+
+  /// Handle incoming SMS messages from another_telephony package
+  void _handleIncomingSms(SmsMessage smsMessage) async {
+    // Convert to our app's SmsMessage model
+    final message = app_models.SmsMessage(
+      id:
+          smsMessage.id?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      sender: smsMessage.address ?? 'Unknown',
+      body: smsMessage.body ?? '',
+      timestamp: smsMessage.date != null
+          ? DateTime.fromMillisecondsSinceEpoch(smsMessage.date!)
+          : DateTime.now(),
+      address: smsMessage.address,
+    );
+
+    // Only process mobile money transactions
+    if (!message.isMobileMoneyTransaction) return;
+
+    print('💰 Mobile money SMS detected: ${message.sender}');
+
+    // Add to scanned messages
+    scannedMessages.insert(0, message);
+    totalScanned.value++;
+
+    // Analyze for fraud
+    await _analyzeMessage(message);
+
+    // Save to storage
+    _saveToStorage();
+
+    // Update last scan time
+    lastScanTime.value = DateTime.now();
+  }
 
   /// Manually scan recent SMS messages
   Future<void> scanRecentMessages() async {
@@ -129,21 +251,84 @@ class SmsScannerController extends GetxController {
     }
 
     isScanning.value = true;
+    isManualScanning.value = true;
 
     try {
-      // For demo purposes, create sample mobile money SMS messages
-      final sampleMessages = _createSampleMessages();
+      // Read SMS messages from device using another_telephony
+      final smsMessages = await telephony.getInboxSms(
+        columns: [
+          SmsColumn.ID,
+          SmsColumn.ADDRESS,
+          SmsColumn.BODY,
+          SmsColumn.DATE,
+        ],
+      );
 
-      print('📱 Found ${sampleMessages.length} mobile money messages (demo)');
+      // Filter only mobile money messages from the last 30 days
+      final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+      final mobileMoneyMessages = smsMessages
+          .where(
+            (sms) =>
+                sms.date != null &&
+                DateTime.fromMillisecondsSinceEpoch(
+                  sms.date!,
+                ).isAfter(cutoffDate),
+          )
+          .map(
+            (sms) => app_models.SmsMessage(
+              id:
+                  sms.id?.toString() ??
+                  DateTime.now().millisecondsSinceEpoch.toString(),
+              sender: sms.address ?? 'Unknown',
+              body: sms.body ?? '',
+              timestamp: sms.date != null
+                  ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                  : DateTime.now(),
+              address: sms.address,
+            ),
+          )
+          .where((msg) => msg.isMobileMoneyTransaction)
+          .toList();
 
-      // Clear previous results
+      print('📱 Found ${mobileMoneyMessages.length} mobile money messages');
+
+      // Store existing background results before clearing
+      final existingBackgroundResults = fraudResults
+          .where(
+            (result) => result.additionalData?['source'] == 'BACKGROUND_SCAN',
+          )
+          .toList();
+      final existingBackgroundMessages = scannedMessages
+          .where(
+            (msg) => fraudResults.any(
+              (result) =>
+                  result.messageId == msg.id &&
+                  result.additionalData?['source'] == 'BACKGROUND_SCAN',
+            ),
+          )
+          .toList();
+
+      // Clear previous manual scan results only
       scannedMessages.clear();
       fraudResults.clear();
 
-      // Add and analyze each message
-      for (SmsMessage message in sampleMessages) {
-        scannedMessages.add(message);
-        await _analyzeMessage(message);
+      // Restore background results
+      fraudResults.addAll(existingBackgroundResults);
+      scannedMessages.addAll(existingBackgroundMessages);
+
+      // Add and analyze each message from manual scan
+      for (app_models.SmsMessage message in mobileMoneyMessages) {
+        // Check if manual scan was cancelled
+        if (!isManualScanning.value) {
+          print('🛑 Manual scan cancelled');
+          return;
+        }
+
+        // Check if this message was already scanned (to avoid duplicates)
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.add(message);
+          await _analyzeMessage(message);
+        }
       }
 
       totalScanned.value = scannedMessages.length;
@@ -151,8 +336,8 @@ class SmsScannerController extends GetxController {
       _saveToStorage();
 
       Get.snackbar(
-        'Scan Complete',
-        'Analyzed ${sampleMessages.length} mobile money messages',
+        'Manual Scan Complete',
+        'Analyzed ${mobileMoneyMessages.length} mobile money messages',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.blue.withOpacity(0.8),
         colorText: Colors.white,
@@ -168,94 +353,243 @@ class SmsScannerController extends GetxController {
       );
     } finally {
       isScanning.value = false;
+      isManualScanning.value = false;
     }
   }
 
+  /// Handle manual scan with background scan conflict detection
+  Future<void> handleManualScan() async {
+    // Check if background scan is currently running
+    if (isBackgroundScanning.value) {
+      Get.snackbar(
+        'Scan in Progress',
+        'Background scanning is currently running. Please wait for it to complete.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Check if manual scan is already running
+    if (isManualScanning.value) {
+      Get.snackbar(
+        'Manual Scan in Progress',
+        'A manual scan is already running. You can navigate away and return to see results.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Proceed with normal manual scan
+    await scanRecentMessages();
+  }
+
+  /// Start background scanning timer
+  void _startBackgroundScanning() {
+    if (!hasPermission.value) return;
+
+    Get.log('🔄 Starting background scanning...');
+
+    // Perform initial background scan immediately
+    _performBackgroundScan();
+
+    // Set up timer for periodic scans every 1 minute
+    _backgroundScanTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _performBackgroundScan(),
+    );
+
+    Get.log('⏰ Background scan timer started (1 minute intervals)');
+  }
+
+  /// Perform background scan
+  Future<void> _performBackgroundScan() async {
+    if (!hasPermission.value || isBackgroundScanning.value) return;
+
+    try {
+      isBackgroundScanning.value = true;
+      Get.log('🔍 Starting background scan...');
+
+      final isInitialScan = lastBackgroundScanTime.value == null;
+      List<app_models.SmsMessage> messagesToAnalyze;
+
+      if (isInitialScan) {
+        // Initial scan: get last 30 days mobile money messages
+        messagesToAnalyze = await _getRecentMobileMoneyMessages();
+        Get.log(
+          '📱 Initial background scan: ${messagesToAnalyze.length} messages',
+        );
+      } else {
+        // Incremental scan: only new messages since last background scan
+        messagesToAnalyze = await _getNewMobileMoneyMessages();
+        Get.log(
+          '📱 Incremental background scan: ${messagesToAnalyze.length} new messages',
+        );
+      }
+
+      if (messagesToAnalyze.isEmpty) {
+        Get.log('📱 No new messages to analyze');
+        return;
+      }
+
+      // Analyze each message
+      int newFraudCount = 0;
+      for (final message in messagesToAnalyze) {
+        // Check if message is already analyzed (avoid duplicates)
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.insert(0, message);
+          totalScanned.value++;
+
+          // Analyze for fraud with BACKGROUND_SCAN source
+          final result = await _fraudService.analyzeSmsMessage(
+            message: message,
+            source: 'BACKGROUND_SCAN',
+          );
+
+          fraudResults.insert(0, result);
+          if (result.isFraud) {
+            fraudDetected.value++;
+            newFraudCount++;
+          }
+        }
+      }
+
+      // Update timestamps
+      lastBackgroundScanTime.value = DateTime.now();
+      lastScanTime.value = DateTime.now();
+      _saveToStorage();
+
+      // Show completion notification
+      final scanType = isInitialScan ? 'Initial' : 'Background';
+      final fraudMessage = newFraudCount > 0
+          ? ' ($newFraudCount fraud detected!)'
+          : '';
+
+      Get.snackbar(
+        '$scanType Scan Complete',
+        '${messagesToAnalyze.length} messages analyzed$fraudMessage',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: newFraudCount > 0
+            ? Colors.red.withOpacity(0.8)
+            : Colors.blue.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+
+      Get.log(
+        '✅ Background scan complete: ${messagesToAnalyze.length} messages, $newFraudCount fraud',
+      );
+    } catch (e) {
+      Get.log('❌ Background scan error: $e');
+    } finally {
+      isBackgroundScanning.value = false;
+    }
+  }
+
+  /// Get recent mobile money messages (last 30 days)
+  Future<List<app_models.SmsMessage>> _getRecentMobileMoneyMessages() async {
+    final smsMessages = await telephony.getInboxSms(
+      columns: [
+        SmsColumn.ID,
+        SmsColumn.ADDRESS,
+        SmsColumn.BODY,
+        SmsColumn.DATE,
+      ],
+    );
+
+    final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+    return smsMessages
+        .where(
+          (sms) =>
+              sms.date != null &&
+              DateTime.fromMillisecondsSinceEpoch(
+                sms.date!,
+              ).isAfter(cutoffDate),
+        )
+        .map(
+          (sms) => app_models.SmsMessage(
+            id:
+                sms.id?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            sender: sms.address ?? 'Unknown',
+            body: sms.body ?? '',
+            timestamp: sms.date != null
+                ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                : DateTime.now(),
+            address: sms.address,
+          ),
+        )
+        .where((msg) => msg.isMobileMoneyTransaction)
+        .toList();
+  }
+
+  /// Get new mobile money messages since last background scan
+  Future<List<app_models.SmsMessage>> _getNewMobileMoneyMessages() async {
+    if (lastBackgroundScanTime.value == null) {
+      return await _getRecentMobileMoneyMessages();
+    }
+
+    final smsMessages = await telephony.getInboxSms(
+      columns: [
+        SmsColumn.ID,
+        SmsColumn.ADDRESS,
+        SmsColumn.BODY,
+        SmsColumn.DATE,
+      ],
+    );
+
+    final lastScanTime = lastBackgroundScanTime.value!;
+    return smsMessages
+        .where(
+          (sms) =>
+              sms.date != null &&
+              DateTime.fromMillisecondsSinceEpoch(
+                sms.date!,
+              ).isAfter(lastScanTime),
+        )
+        .map(
+          (sms) => app_models.SmsMessage(
+            id:
+                sms.id?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            sender: sms.address ?? 'Unknown',
+            body: sms.body ?? '',
+            timestamp: sms.date != null
+                ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                : DateTime.now(),
+            address: sms.address,
+          ),
+        )
+        .where((msg) => msg.isMobileMoneyTransaction)
+        .toList();
+  }
+
   /// Analyze a single message for fraud
-  Future<void> _analyzeMessage(SmsMessage message) async {
+  Future<void> _analyzeMessage(app_models.SmsMessage message) async {
     try {
       isAnalyzing.value = true;
 
-      final result = await _fraudService.analyzeSmsMessage(message);
+      final result = await _fraudService.analyzeSmsMessage(
+        message: message,
+        source: 'USER_SCAN',
+      );
+      Get.log('Analyzing message: $result');
       fraudResults.insert(0, result);
 
       if (result.isFraud) {
         fraudDetected.value++;
-        _showFraudAlert(message, result);
+        // _showFraudAlert(message, result);
       }
     } catch (e) {
       print('Error analyzing message: $e');
     } finally {
       isAnalyzing.value = false;
     }
-  }
-
-  /// Show fraud alert to user
-  void _showFraudAlert(SmsMessage message, FraudResult result) {
-    Get.dialog(
-      AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.warning, color: Colors.red, size: 28),
-            const SizedBox(width: 8),
-            const Text('Fraud Alert!'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Suspicious message detected from ${message.sender}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text('Risk Level: ${result.riskLevelText}'),
-            Text(
-              'Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%',
-            ),
-            if (result.reason != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Reason: ${result.reason}',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                message.body,
-                style: const TextStyle(fontSize: 12),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('Dismiss')),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              Get.toNamed('/sms-scanner');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-            ),
-            child: const Text(
-              'View Details',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
   }
 
   /// Get fraud statistics
@@ -272,7 +606,7 @@ class SmsScannerController extends GetxController {
 
       if (storedMessages != null) {
         scannedMessages.value = (storedMessages as List)
-            .map((json) => SmsMessage.fromJson(json))
+            .map((json) => app_models.SmsMessage.fromJson(json))
             .toList();
       }
 
@@ -288,6 +622,10 @@ class SmsScannerController extends GetxController {
         final lastScanStr = storedStats['lastScanTime'];
         if (lastScanStr != null) {
           lastScanTime.value = DateTime.parse(lastScanStr);
+        }
+        final lastBackgroundScanStr = storedStats['lastBackgroundScanTime'];
+        if (lastBackgroundScanStr != null) {
+          lastBackgroundScanTime.value = DateTime.parse(lastBackgroundScanStr);
         }
       }
     } catch (e) {
@@ -310,6 +648,8 @@ class SmsScannerController extends GetxController {
         'totalScanned': totalScanned.value,
         'fraudDetected': fraudDetected.value,
         'lastScanTime': lastScanTime.value?.toIso8601String(),
+        'lastBackgroundScanTime': lastBackgroundScanTime.value
+            ?.toIso8601String(),
       });
     } catch (e) {
       print('Error saving data: $e');
@@ -354,6 +694,11 @@ class SmsScannerController extends GetxController {
         totalScanned.value = 0;
         fraudDetected.value = 0;
         lastScanTime.value = null;
+        lastBackgroundScanTime.value = null;
+
+        // Also clear background results
+        _smsListener.clearBackgroundResults();
+
         _saveToStorage();
 
         Get.back();
@@ -367,75 +712,213 @@ class SmsScannerController extends GetxController {
   }
 
   /// Toggle background monitoring
-  void toggleBackgroundMonitoring() {
-    // For demo mode, just show a notification
-    Get.snackbar(
-      'Demo Mode',
-      'Background monitoring is simulated in demo mode',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.blue.withOpacity(0.8),
-      colorText: Colors.white,
-    );
-  }
+  Future<void> toggleBackgroundMonitoring() async {
+    try {
+      if (isBackgroundMonitoring.value) {
+        // Stop background monitoring
+        _smsListener.stopListening();
+        await BackgroundSmsWorker.stopBackgroundMonitoring();
+        await BackgroundSmsWorker.setBackgroundMonitoringEnabled(false);
+        isBackgroundMonitoring.value = false;
 
-  /// Create sample data for demo purposes
-  void _createSampleData() {
-    // Create some sample messages for demo
-    final sampleMessages = _createSampleMessages();
-    scannedMessages.addAll(sampleMessages.take(3));
-    totalScanned.value = scannedMessages.length;
+        Get.snackbar(
+          'Background Monitoring Disabled',
+          'SMS fraud detection will only work when app is open',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      } else {
+        // Start background monitoring
+        if (!hasPermission.value) {
+          await requestPermissions();
+          if (!hasPermission.value) return;
+        }
 
-    // Analyze a sample message to show fraud detection
-    if (sampleMessages.isNotEmpty) {
-      _analyzeMessage(sampleMessages.first);
+        await _startBackgroundMonitoring();
+        await BackgroundSmsWorker.setBackgroundMonitoringEnabled(true);
+
+        Get.snackbar(
+          'Background Monitoring Enabled',
+          'SMS fraud detection is now active in the background',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      print('❌ Error toggling background monitoring: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to toggle background monitoring: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+      );
     }
   }
 
-  /// Create sample SMS messages for demo
-  List<SmsMessage> _createSampleMessages() {
-    final now = DateTime.now();
+  /// Handle camera capture for image fraud analysis
+  Future<void> captureImageFromCamera() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80, // Compress for faster upload
+        maxWidth: 1920, // Limit resolution to prevent memory issues
+        maxHeight: 1080,
+      );
 
-    return [
-      SmsMessage(
-        id: 'demo_1',
-        sender: 'MTN',
-        body:
-            'Your MTN mobile money transaction was successful. You have received GHS 50.00 from 0244123456. New balance: GHS 150.00. Ref: MM123456789',
-        timestamp: now.subtract(const Duration(hours: 1)),
-        address: '0244123456',
-      ),
-      SmsMessage(
-        id: 'demo_2',
-        sender: 'UNKNOWN',
-        body:
-            'URGENT: Your account has been suspended. Click here to verify your account immediately: bit.ly/fake-link or you will lose your money!',
-        timestamp: now.subtract(const Duration(hours: 2)),
-        address: '0557123456',
-      ),
-      SmsMessage(
-        id: 'demo_3',
-        sender: 'VODAFONE',
-        body:
-            'You have successfully sent GHS 25.00 to 0201987654. Your new balance is GHS 75.50. Transaction ID: VF987654321',
-        timestamp: now.subtract(const Duration(hours: 3)),
-        address: '0201987654',
-      ),
-      SmsMessage(
-        id: 'demo_4',
-        sender: 'FAKE-MTN',
-        body:
-            'Congratulations! You have won GHS 10,000 in our lottery! To claim your prize, send your PIN to this number immediately!',
-        timestamp: now.subtract(const Duration(days: 1)),
-        address: '0555666777',
-      ),
-      SmsMessage(
-        id: 'demo_5',
-        sender: 'AIRTELTIGO',
-        body:
-            'You have received GHS 100.00 from 0208765432. Your wallet balance is now GHS 225.00. Ref: AT555444333',
-        timestamp: now.subtract(const Duration(days: 1, hours: 2)),
-        address: '0208765432',
-      ),
-    ];
+      if (image != null) {
+        Get.log('📱 Image captured: ${image.path}');
+
+        // Verify file exists and is readable
+        final file = File(image.path);
+        if (!await file.exists()) {
+          throw Exception('Captured image file does not exist');
+        }
+
+        final fileSize = await file.length();
+        Get.log('📁 Image file size: $fileSize bytes');
+
+        if (fileSize == 0) {
+          throw Exception('Captured image file is empty');
+        }
+
+        await _analyzeImage(file);
+      } else {
+        Get.log('📱 No image was captured');
+      }
+    } catch (e, stackTrace) {
+      Get.log('❌ Camera capture error: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Camera Error',
+        'Failed to capture image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  /// Handle image upload from gallery
+  Future<void> uploadImageFromGallery() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80, // Compress for faster upload
+        maxWidth: 1920, // Limit resolution to prevent memory issues
+        maxHeight: 1080,
+      );
+
+      if (image != null) {
+        Get.log('📱 Image selected from gallery: ${image.path}');
+
+        // Verify file exists and is readable
+        final file = File(image.path);
+        if (!await file.exists()) {
+          throw Exception('Selected image file does not exist');
+        }
+
+        final fileSize = await file.length();
+        Get.log('📁 Image file size: $fileSize bytes');
+
+        if (fileSize == 0) {
+          throw Exception('Selected image file is empty');
+        }
+
+        await _analyzeImage(file);
+      } else {
+        Get.log('📱 No image was selected');
+      }
+    } catch (e, stackTrace) {
+      Get.log('❌ Gallery upload error: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Upload Error',
+        'Failed to upload image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  /// Analyze image for fraud detection
+  Future<void> _analyzeImage(File imageFile) async {
+    try {
+      isAnalyzing.value = true;
+      Get.log('🖼️ Starting image analysis for: ${imageFile.path}');
+
+      // Double-check file exists and is readable
+      if (!await imageFile.exists()) {
+        throw Exception('Image file no longer exists: ${imageFile.path}');
+      }
+
+      final fileSize = await imageFile.length();
+      Get.log('📁 Image file size: $fileSize bytes');
+
+      if (fileSize == 0) {
+        throw Exception('Image file is empty');
+      }
+
+      // Validate image file extension
+      final extension = imageFile.path.toLowerCase();
+      if (!extension.endsWith('.jpg') &&
+          !extension.endsWith('.jpeg') &&
+          !extension.endsWith('.png')) {
+        Get.log('⚠️ Warning: Unusual image extension: $extension');
+      }
+
+      Get.log('🔍 Calling fraud detection service...');
+      final result = await _fraudService.analyzeImageMessage(
+        imageFile,
+        source: 'USER_SCAN',
+      );
+      Get.log('✅ Analysis complete: ${result.isFraud ? "FRAUD" : "SAFE"}');
+
+      // Add result to fraud results list
+      fraudResults.insert(0, result);
+      totalScanned.value++;
+
+      if (result.isFraud) {
+        fraudDetected.value++;
+      } else {
+        Get.snackbar(
+          'Analysis Complete',
+          'Image analysis complete. No fraud detected.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.green.withOpacity(0.8),
+          colorText: Colors.white,
+        );
+      }
+
+      // Update last scan time and save data
+      lastScanTime.value = DateTime.now();
+      _saveToStorage();
+
+      Get.log('💾 Data saved successfully');
+    } catch (e, stackTrace) {
+      Get.log('❌ Error analyzing image: $e');
+      Get.log('📋 Stack trace: $stackTrace');
+
+      Get.snackbar(
+        'Analysis Error',
+        'Failed to analyze image: ${e.toString()}',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    } finally {
+      isAnalyzing.value = false;
+      Get.log('🏁 Image analysis process completed');
+    }
   }
 }

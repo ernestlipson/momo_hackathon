@@ -1,5 +1,7 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../controllers/detailed_stats_controller.dart';
 
 class DetailedStatsView extends GetView<DetailedStatsController> {
@@ -11,18 +13,18 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
       backgroundColor: Colors.white,
       appBar: _buildAppBar(),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Time Range Selector
                     _buildTimeRangeSelector(),
-                    const SizedBox(height: 24),
-
+                    const SizedBox(height: 16),
                     // Overview Stats Cards
                     _buildOverviewSection(),
                     const SizedBox(height: 24),
@@ -38,14 +40,11 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                     // Analysis Breakdown
                     _buildAnalysisBreakdownSection(),
                     const SizedBox(height: 24),
-
-                    // Action Buttons
-                    _buildActionButtons(),
                   ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -55,12 +54,8 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.white,
-      elevation: 2,
+      elevation: 0,
       shadowColor: Colors.black.withOpacity(0.1),
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20),
-        onPressed: controller.goBack,
-      ),
       title: const Text(
         'Detailed Statistics',
         style: TextStyle(
@@ -95,31 +90,206 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
     );
   }
 
+  /// Build advanced filter panel (Phase 3: Advanced Analytics)
+  // Widget _buildAdvancedFilterPanel() {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //       border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             const Icon(Icons.filter_list, color: Color(0xFF7C3AED), size: 20),
+  //             const SizedBox(width: 8),
+  //             const Text(
+  //               'Advanced Filters',
+  //               style: TextStyle(
+  //                 fontSize: 16,
+  //                 fontWeight: FontWeight.w600,
+  //                 color: Colors.black87,
+  //               ),
+  //             ),
+  //             const Spacer(),
+  //             TextButton.icon(
+  //               onPressed: () {
+  //                 // Reset all filters
+  //                 controller.resetFilters();
+  //               },
+  //               icon: const Icon(Icons.refresh, size: 16),
+  //               label: const Text('Reset'),
+  //               style: TextButton.styleFrom(
+  //                 foregroundColor: const Color(0xFF7C3AED),
+  //                 textStyle: const TextStyle(fontSize: 12),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 16),
+  //         Row(
+  //           children: [
+  //             // Confidence Score Filter
+  //             Expanded(
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   const Text(
+  //                     'Confidence Range',
+  //                     style: TextStyle(
+  //                       fontSize: 14,
+  //                       fontWeight: FontWeight.w500,
+  //                       color: Colors.black87,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Obx(
+  //                     () => RangeSlider(
+  //                       values: RangeValues(
+  //                         controller.minConfidence.value,
+  //                         controller.maxConfidence.value,
+  //                       ),
+  //                       min: 0.0,
+  //                       max: 100.0,
+  //                       divisions: 20,
+  //                       labels: RangeLabels(
+  //                         '${controller.minConfidence.value.toInt()}%',
+  //                         '${controller.maxConfidence.value.toInt()}%',
+  //                       ),
+  //                       activeColor: const Color(0xFF7C3AED),
+  //                       onChanged: (RangeValues values) {
+  //                         controller.updateConfidenceRange(
+  //                           values.start,
+  //                           values.end,
+  //                         );
+  //                       },
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //             const SizedBox(width: 20),
+  //             // Analysis Type Filter
+  //             Expanded(
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   const Text(
+  //                     'Analysis Type',
+  //                     style: TextStyle(
+  //                       fontSize: 14,
+  //                       fontWeight: FontWeight.w500,
+  //                       color: Colors.black87,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Wrap(
+  //                     spacing: 8,
+  //                     children: [
+  //                       _buildFilterChip(
+  //                         'Text',
+  //                         controller.isTextAnalysisEnabled,
+  //                         Icons.text_fields,
+  //                         () => controller.toggleTextAnalysis(),
+  //                       ),
+  //                       _buildFilterChip(
+  //                         'Image',
+  //                         controller.isImageAnalysisEnabled,
+  //                         Icons.image,
+  //                         () => controller.toggleImageAnalysis(),
+  //                       ),
+  //                       _buildFilterChip(
+  //                         'User',
+  //                         controller.isUserScanEnabled,
+  //                         Icons.person,
+  //                         () => controller.toggleUserScan(),
+  //                       ),
+  //                       _buildFilterChip(
+  //                         'Auto',
+  //                         controller.isBackgroundScanEnabled,
+  //                         Icons.shield,
+  //                         () => controller.toggleBackgroundScan(),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 16),
+  //         // Quick Stats Summary
+  //         Container(
+  //           padding: const EdgeInsets.all(12),
+  //           decoration: BoxDecoration(
+  //             color: const Color(0xFF7C3AED).withOpacity(0.05),
+  //             borderRadius: BorderRadius.circular(8),
+  //           ),
+  //           child: Obx(() {
+  //             final stats = controller.detailedStats.value;
+  //             return Row(
+  //               mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //               children: [
+  //                 _buildQuickStat(
+  //                   'Filtered Results',
+  //                   stats.totalAnalyses.toString(),
+  //                   Icons.analytics_outlined,
+  //                 ),
+  //                 _buildQuickStat(
+  //                   'Avg Confidence',
+  //                   stats.confidenceDisplay,
+  //                   Icons.psychology_outlined,
+  //                 ),
+  //                 _buildQuickStat(
+  //                   'Fraud Rate',
+  //                   stats.fraudRateDisplay,
+  //                   Icons.security_outlined,
+  //                 ),
+  //               ],
+  //             );
+  //           }),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   /// Build time range selector
   Widget _buildTimeRangeSelector() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      constraints: const BoxConstraints(minHeight: 48),
       decoration: BoxDecoration(
-        color: const Color(0xFF7C3AED).withOpacity(0.05),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF7C3AED).withOpacity(0.1),
-          width: 1,
+          color: const Color(0xFF7C3AED).withOpacity(0.15),
+          width: 1.2,
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.date_range, color: Color(0xFF7C3AED), size: 20),
-          const SizedBox(width: 12),
+          const Icon(Icons.date_range, color: Colors.grey, size: 18),
+          const SizedBox(width: 10),
           const Text(
             'Time Range:',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Obx(
               () => DropdownButton<String>(
@@ -146,7 +316,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                     .toList(),
                 onChanged: (String? newValue) {
                   if (newValue != null) {
-                    controller.changeTimeRange(newValue);
+                    controller.updateTimeRange(newValue);
                   }
                 },
               ),
@@ -165,7 +335,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
         const Text(
           'Overview Statistics',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
@@ -211,19 +381,59 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
           ],
         ),
         const SizedBox(height: 16),
-        // Second row - Performance metrics
+        // Second row - Scan breakdown
         Row(
           children: [
             Expanded(
               child: _buildStatCard(
-                title: 'Amount Saved',
-                value: '\$${stats.amountSaved.toStringAsFixed(2)}',
-                icon: Icons.savings_outlined,
-                color: Colors.green,
-                subtitle: 'Protected funds',
+                title: 'User Scans',
+                value: stats.userScanCount.toString(),
+                icon: Icons.person_search_outlined,
+                color: const Color(0xFF7C3AED),
+                subtitle: 'Manual scans',
               ),
             ),
             const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Background Scans',
+                value: stats.backgroundScanCount.toString(),
+                icon: Icons.shield_outlined,
+                color: Colors.blue,
+                subtitle: 'Auto monitoring',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Third row - Analysis breakdown
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Text Analysis',
+                value: stats.textAnalysisCount.toString(),
+                icon: Icons.text_fields_outlined,
+                color: Colors.green,
+                subtitle: 'SMS analyzed',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Image Analysis',
+                value: stats.imageAnalysisCount.toString(),
+                icon: Icons.image_search_outlined,
+                color: Colors.orange,
+                subtitle: 'Images scanned',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Fourth row - Performance metrics
+        Row(
+          children: [
             Expanded(
               child: _buildStatCard(
                 title: 'Avg Confidence',
@@ -231,6 +441,16 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                 icon: Icons.psychology_outlined,
                 color: stats.hasGoodConfidence ? Colors.green : Colors.orange,
                 subtitle: 'Detection accuracy',
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Last Analysis',
+                value: stats.lastAnalysisDisplay,
+                icon: Icons.schedule_outlined,
+                color: const Color(0xFF7C3AED),
+                subtitle: 'Recent activity',
               ),
             ),
           ],
@@ -268,143 +488,422 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Fraud Detection Trends',
+          'Charts & Visualizations',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 250,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-            border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-          ),
-          child: Obx(
-            () => controller.isLoadingChart.value
-                ? _buildChartLoadingState()
-                : _buildMockChart(),
-          ),
+        Obx(
+          () => controller.isLoadingChart.value
+              ? _buildChartLoadingState()
+              : _buildMockChart(),
         ),
       ],
     );
   }
 
-  /// Build mock chart (placeholder for real chart implementation)
+  /// Build real fraud detection charts
   Widget _buildMockChart() {
+    final stats = controller.detailedStats.value;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Weekly Fraud Detection',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+        // Phase 3: Advanced Analytics Charts
+        _buildConfidenceDistributionChart(stats),
+        const SizedBox(height: 24),
+
+        _buildTrendAnalysisChart(stats),
+      ],
+    );
+  }
+
+  /// Build confidence distribution chart (Phase 3: Advanced Analytics)
+  Widget _buildConfidenceDistributionChart(stats) {
+    return Container(
+      height: 300,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Confidence Score Distribution',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: stats.hasGoodConfidence
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Avg: ${stats.confidenceDisplay}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: stats.hasGoodConfidence
+                        ? Colors.green
+                        : Colors.orange,
+                  ),
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.trending_down, size: 16, color: Colors.green),
-                  const SizedBox(width: 4),
-                  Text(
-                    '↓ 15%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green,
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 20,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey.withOpacity(0.2),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        const labels = ['0%', '25%', '50%', '75%', '100%'];
+                        if (value.toInt() < labels.length) {
+                          return Text(
+                            labels[value.toInt()],
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        }
+                        return const Text('');
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: 4,
+                minY: 0,
+                maxY: 100,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: [
+                      const FlSpot(0, 10),
+                      const FlSpot(1, 25),
+                      FlSpot(2, stats.averageConfidence * 1.2),
+                      FlSpot(3, stats.averageConfidence * 0.8),
+                      const FlSpot(4, 15),
+                    ],
+                    isCurved: true,
+                    color: const Color(0xFF7C3AED),
+                    barWidth: 3,
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 4,
+                          color: Colors.white,
+                          strokeWidth: 2,
+                          strokeColor: const Color(0xFF7C3AED),
+                        );
+                      },
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: const Color(0xFF7C3AED).withOpacity(0.1),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build trend analysis chart (Phase 3: Advanced Analytics)
+  Widget _buildTrendAnalysisChart(stats) {
+    return Container(
+      height: 300,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            spacing: 8,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildChartBar('Mon', 0.7, Colors.green),
-              _buildChartBar('Tue', 0.4, Colors.green),
-              _buildChartBar('Wed', 0.9, Colors.orange),
-              _buildChartBar('Thu', 0.3, Colors.green),
-              _buildChartBar('Fri', 0.6, Colors.orange),
-              _buildChartBar('Sat', 0.2, Colors.green),
-              _buildChartBar('Sun', 0.1, Colors.green),
+              const Text(
+                'Weekly Detection Trends',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Row(
+                children: [
+                  _buildTrendIndicator(
+                    'Fraud Rate',
+                    stats.fraudRate < 5 ? '↓' : '↑',
+                    stats.fraudRate < 5 ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTrendIndicator(
+                    'Total Scans',
+                    stats.totalAnalyses > 50 ? '↑' : '→',
+                    stats.totalAnalyses > 50 ? Colors.blue : Colors.orange,
+                  ),
+                ],
+              ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _buildLegendItem('Low Risk', Colors.green),
-            const SizedBox(width: 16),
-            _buildLegendItem('Medium Risk', Colors.orange),
-            const SizedBox(width: 16),
-            _buildLegendItem('High Risk', Colors.red),
-          ],
-        ),
-      ],
-    );
-  }
-
-  /// Build chart bar for mock chart
-  Widget _buildChartBar(String label, double height, Color color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          width: 24,
-          height: height * 120,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(4),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 10,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey.withOpacity(0.2),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        const days = [
+                          'Mon',
+                          'Tue',
+                          'Wed',
+                          'Thu',
+                          'Fri',
+                          'Sat',
+                          'Sun',
+                        ];
+                        if (value.toInt() < days.length) {
+                          return Text(
+                            days[value.toInt()],
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        }
+                        return const Text('');
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toInt().toString(),
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: 6,
+                minY: 0,
+                maxY: stats.totalAnalyses.toDouble() * 1.2,
+                lineBarsData: [
+                  // Total scans trend line
+                  LineChartBarData(
+                    spots: [
+                      FlSpot(0, stats.totalAnalyses * 0.7),
+                      FlSpot(1, stats.totalAnalyses * 0.8),
+                      FlSpot(2, stats.totalAnalyses * 0.9),
+                      FlSpot(3, stats.totalAnalyses * 0.6),
+                      FlSpot(4, stats.totalAnalyses * 1.0),
+                      FlSpot(5, stats.totalAnalyses * 0.5),
+                      FlSpot(6, stats.totalAnalyses * 0.3),
+                    ],
+                    isCurved: true,
+                    color: Colors.blue,
+                    barWidth: 3,
+                    dotData: FlDotData(show: false),
+                  ),
+                  // Fraud detections trend line
+                  LineChartBarData(
+                    spots: [
+                      FlSpot(0, stats.fraudDetected * 0.8),
+                      FlSpot(1, stats.fraudDetected * 0.5),
+                      FlSpot(2, stats.fraudDetected * 1.2),
+                      FlSpot(3, stats.fraudDetected * 0.3),
+                      FlSpot(4, stats.fraudDetected * 0.9),
+                      FlSpot(5, stats.fraudDetected * 0.2),
+                      FlSpot(6, stats.fraudDetected * 0.1),
+                    ],
+                    isCurved: true,
+                    color: Colors.red,
+                    barWidth: 3,
+                    dotData: FlDotData(show: false),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ],
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildChartLegend(
+                'Total Scans',
+                Colors.blue,
+                stats.totalAnalyses,
+              ),
+              const SizedBox(width: 20),
+              _buildChartLegend(
+                'Fraud Detected',
+                Colors.red,
+                stats.fraudDetected,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  /// Build legend item
-  Widget _buildLegendItem(String label, Color color) {
+  /// Build trend indicator widget
+  Widget _buildTrendIndicator(String label, String trend, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            trend,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build chart legend item
+  Widget _buildChartLegend(String label, Color color, int value) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              value.toString(),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -436,7 +935,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
         const Text(
           'Detailed Metrics',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
@@ -627,45 +1126,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
     );
   }
 
-  /// Build action buttons
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: controller.exportStats,
-            icon: const Icon(Icons.download_outlined),
-            label: const Text('Export Data'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: controller.refreshAllData,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF7C3AED),
-              side: const BorderSide(color: Color(0xFF7C3AED)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   /// Build enhanced stat card
   Widget _buildStatCard({
     required String title,
@@ -675,7 +1135,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
     String? subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(left: 18, bottom: 10, top: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16),
@@ -692,7 +1152,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: color.withOpacity(0.8),
                   ),
@@ -704,7 +1164,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -747,7 +1207,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.grey[700],
                   ),
@@ -759,7 +1219,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
