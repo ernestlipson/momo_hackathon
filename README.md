@@ -302,9 +302,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Event**: MoMo Hackathon  
 **Theme**: Mobile Money Security & Fraud Prevention  
-**Duration**: [Hackathon Duration]  
-**Team**: [Team Name]  
-**Awards**: [Any awards or recognition received]
+**Team**: Team AED
 
 ## 📞 Support & Contact
 
