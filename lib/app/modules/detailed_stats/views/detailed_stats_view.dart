@@ -40,9 +40,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                     // Analysis Breakdown
                     _buildAnalysisBreakdownSection(),
                     const SizedBox(height: 24),
-
-                    // Action Buttons
-                    _buildActionButtons(),
                   ],
                 ),
               ),
@@ -368,7 +365,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                     .toList(),
                 onChanged: (String? newValue) {
                   if (newValue != null) {
-                    controller.changeTimeRange(newValue);
+                    controller.updateTimeRange(newValue);
                   }
                 },
               ),
@@ -563,14 +560,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
 
     return Column(
       children: [
-        // // Scan Type Distribution (Pie Chart)
-        // _buildScanTypeChart(stats),
-        // const SizedBox(height: 24),
-        //
-        // // Analysis Method Bar Chart
-        // _buildAnalysisMethodChart(stats),
-        // const SizedBox(height: 24),
-
         // Phase 3: Advanced Analytics Charts
         _buildConfidenceDistributionChart(stats),
         const SizedBox(height: 24),
@@ -668,127 +657,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build analysis method bar chart
-  Widget _buildAnalysisMethodChart(stats) {
-    return Container(
-      height: 300,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Analysis Method Breakdown',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY:
-                    [
-                      stats.textAnalysisCount,
-                      stats.imageAnalysisCount,
-                    ].reduce((a, b) => a > b ? a : b).toDouble() *
-                    1.2,
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        switch (value.toInt()) {
-                          case 0:
-                            return const Text(
-                              'Text\nAnalysis',
-                              style: TextStyle(fontSize: 12),
-                              textAlign: TextAlign.center,
-                            );
-                          case 1:
-                            return const Text(
-                              'Image\nAnalysis',
-                              style: TextStyle(fontSize: 12),
-                              textAlign: TextAlign.center,
-                            );
-                          default:
-                            return const Text('');
-                        }
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: [
-                  BarChartGroupData(
-                    x: 0,
-                    barRods: [
-                      BarChartRodData(
-                        toY: stats.textAnalysisCount.toDouble(),
-                        color: Colors.green,
-                        width: 40,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(6),
-                          topRight: Radius.circular(6),
-                        ),
-                      ),
-                    ],
-                  ),
-                  BarChartGroupData(
-                    x: 1,
-                    barRods: [
-                      BarChartRodData(
-                        toY: stats.imageAnalysisCount.toDouble(),
-                        color: Colors.orange,
-                        width: 40,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(6),
-                          topRight: Radius.circular(6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -1217,7 +1085,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
         const Text(
           'Detailed Metrics',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
             color: Colors.black87,
           ),
@@ -1408,43 +1276,137 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
     );
   }
 
-  /// Build action buttons
-  Widget _buildActionButtons() {
-    return Row(
+  /// Build export options
+  Widget _buildExportOptions() {
+    return Column(
       children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: controller.exportStats,
-            icon: const Icon(Icons.download_outlined),
-            label: const Text('Export Data'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        _buildOptionTile(
+          'Include Charts & Visualizations',
+          'Add charts and graphs to the PDF report',
+          Icons.bar_chart,
+          controller.includeCharts,
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: controller.refreshAllData,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF7C3AED),
-              side: const BorderSide(color: Color(0xFF7C3AED)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
+        const SizedBox(height: 12),
+        _buildOptionTile(
+          'Include Detailed Breakdown',
+          'Add comprehensive analysis breakdown',
+          Icons.analytics,
+          controller.includeDetailedBreakdown,
+        ),
+        const SizedBox(height: 12),
+        _buildOptionTile(
+          'Include Time Range Data',
+          'Add historical trend information',
+          Icons.timeline,
+          controller.includeTimeRange,
         ),
       ],
     );
+  }
+
+  /// Build option tile
+  Widget _buildOptionTile(
+    String title,
+    String subtitle,
+    IconData icon,
+    RxBool value,
+  ) {
+    return Obx(
+      () => GestureDetector(
+        onTap: () => value.value = !value.value,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: value.value
+                ? const Color(0xFF7C3AED).withOpacity(0.08)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: value.value
+                  ? const Color(0xFF7C3AED).withOpacity(0.3)
+                  : Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: value.value
+                      ? const Color(0xFF7C3AED)
+                      : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: value.value ? Colors.white : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: value.value
+                      ? const Color(0xFF7C3AED)
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: value.value
+                        ? const Color(0xFF7C3AED)
+                        : Colors.grey.withOpacity(0.4),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: value.value
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Get template icon
+  IconData _getTemplateIcon(String template) {
+    switch (template) {
+      case 'Standard':
+        return Icons.description;
+      case 'Executive Summary':
+        return Icons.business_center;
+      case 'Technical Details':
+        return Icons.settings;
+      case 'Security Audit':
+        return Icons.security;
+      default:
+        return Icons.description;
+    }
   }
 
   /// Build enhanced stat card
@@ -1528,7 +1490,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Colors.grey[700],
                   ),
@@ -1540,7 +1502,7 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: color,
             ),
