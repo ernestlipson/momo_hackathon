@@ -62,6 +62,9 @@ dependencies:
   image_picker: ^1.0.7
   path_provider: ^2.1.2
   flutter_svg: ^2.0.9
+  
+  # Charts and visualizations
+  fl_chart: ^0.68.0
 
 dev_dependencies:
   flutter_test:

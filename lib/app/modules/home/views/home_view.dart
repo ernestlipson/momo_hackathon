@@ -442,9 +442,9 @@ class HomeView extends GetView<HomeController> {
             Expanded(
               child: _buildFraudStatCard(
                 title: 'Fraud Rate',
-                value: stats.confidenceDisplay,
+                value: stats.fraudRateDisplay,
                 icon: Icons.percent_outlined,
-                color: stats.hasGoodConfidence ? Colors.orange : Colors.red,
+                color: stats.hasHighFraudActivity ? Colors.red : Colors.green,
               ),
             ),
             const SizedBox(width: 16),

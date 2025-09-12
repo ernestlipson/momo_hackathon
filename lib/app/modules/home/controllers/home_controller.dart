@@ -20,11 +20,10 @@ class HomeController extends GetxController {
 
   // Observable variables for home stats (deprecated - will be replaced with fraudStats)
   final totalScan = 1234.obs;
-  final amountSaved = 56.78.obs;
 
   // News articles data (commented out - replaced with API articles)
   // final newsArticles = <NewsArticle>[].obs;
-  
+
   // API Articles data
   final apiArticles = <ApiArticle>[].obs;
   final isLoadingNews = false.obs;
@@ -104,7 +103,6 @@ class HomeController extends GetxController {
       if (stats != null) {
         fraudStats.value = stats;
         totalScan.value = stats.totalAnalyses;
-        amountSaved.value = stats.amountSaved;
         Get.log(
           '📊 Loaded fraud detection statistics: ${stats.totalAnalyses} analyses',
         );
@@ -147,7 +145,6 @@ class HomeController extends GetxController {
       if (stats != null) {
         fraudStats.value = stats;
         totalScan.value = stats.totalAnalyses;
-        amountSaved.value = stats.amountSaved;
         Get.snackbar(
           'Statistics Updated',
           'Fraud detection statistics refreshed successfully',
@@ -277,10 +274,6 @@ class HomeController extends GetxController {
 
   void updateTotalScan(int newCount) {
     totalScan.value = newCount;
-  }
-
-  void updateAmountSaved(double newAmount) {
-    amountSaved.value = newAmount;
   }
 
   void onScanButtonPressed() {

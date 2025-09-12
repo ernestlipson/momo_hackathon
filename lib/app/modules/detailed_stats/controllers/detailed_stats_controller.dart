@@ -27,6 +27,14 @@ class DetailedStatsController extends GetxController {
   final chartData = <Map<String, dynamic>>[].obs;
   final isLoadingChart = false.obs;
 
+  // Phase 3: Advanced Filter Properties
+  final minConfidence = 0.0.obs;
+  final maxConfidence = 100.0.obs;
+  final isTextAnalysisEnabled = true.obs;
+  final isImageAnalysisEnabled = true.obs;
+  final isUserScanEnabled = true.obs;
+  final isBackgroundScanEnabled = true.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -118,6 +126,63 @@ class DetailedStatsController extends GetxController {
     selectedTimeRange.value = newRange;
     loadDetailedStats();
     loadChartData();
+  }
+
+  /// Phase 3: Advanced Filter Methods
+
+  /// Update confidence range filter
+  void updateConfidenceRange(double min, double max) {
+    minConfidence.value = min;
+    maxConfidence.value = max;
+    // Trigger data refresh with new filters
+    loadDetailedStats();
+  }
+
+  /// Toggle text analysis filter
+  void toggleTextAnalysis() {
+    isTextAnalysisEnabled.value = !isTextAnalysisEnabled.value;
+    loadDetailedStats();
+  }
+
+  /// Toggle image analysis filter
+  void toggleImageAnalysis() {
+    isImageAnalysisEnabled.value = !isImageAnalysisEnabled.value;
+    loadDetailedStats();
+  }
+
+  /// Toggle user scan filter
+  void toggleUserScan() {
+    isUserScanEnabled.value = !isUserScanEnabled.value;
+    loadDetailedStats();
+  }
+
+  /// Toggle background scan filter
+  void toggleBackgroundScan() {
+    isBackgroundScanEnabled.value = !isBackgroundScanEnabled.value;
+    loadDetailedStats();
+  }
+
+  /// Reset all filters to default values
+  void resetFilters() {
+    minConfidence.value = 0.0;
+    maxConfidence.value = 100.0;
+    isTextAnalysisEnabled.value = true;
+    isImageAnalysisEnabled.value = true;
+    isUserScanEnabled.value = true;
+    isBackgroundScanEnabled.value = true;
+    selectedTimeRange.value = 'Last 30 Days';
+
+    // Refresh data with reset filters
+    loadDetailedStats();
+
+    Get.snackbar(
+      'Filters Reset',
+      'All filters have been reset to default values',
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.green.withOpacity(0.8),
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+    );
   }
 
   /// Export statistics data

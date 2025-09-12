@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 /// Model for fraud detection statistics overview
 class FraudDetectionStats {
   final int totalAnalyses;
@@ -54,13 +56,6 @@ class FraudDetectionStats {
     };
   }
 
-  /// Calculate amount saved based on fraud detected
-  /// Assuming average transaction amount of 100 GHS
-  double get amountSaved {
-    const double averageTransactionAmount = 100.0;
-    return fraudDetected * averageTransactionAmount;
-  }
-
   /// Get fraud detection rate as percentage string
   String get fraudRateDisplay {
     return '${fraudRate.toStringAsFixed(1)}%';
@@ -86,16 +81,27 @@ class FraudDetectionStats {
     if (lastAnalysisAt == null) return 'Never';
 
     final now = DateTime.now();
-    final difference = now.difference(lastAnalysisAt!);
+    final lastAnalysis = lastAnalysisAt!;
+    final difference = now.difference(lastAnalysis);
 
-    if (difference.inDays > 0) {
-      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    // Check if it's today
+    final isToday =
+        now.year == lastAnalysis.year &&
+        now.month == lastAnalysis.month &&
+        now.day == lastAnalysis.day;
+
+    if (isToday) {
+      // For today, use "X hrs ago" format
+      if (difference.inHours > 0) {
+        return '${difference.inHours} hr${difference.inHours == 1 ? '' : 's'} ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes} min${difference.inMinutes == 1 ? '' : 's'} ago';
+      } else {
+        return 'Just now';
+      }
     } else {
-      return 'Just now';
+      // For other days, use "Sep 11, 2025" format
+      return DateFormat('MMM dd, yyyy').format(lastAnalysis);
     }
   }
 
