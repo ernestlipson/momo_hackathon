@@ -264,55 +264,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
   //   );
   // }
 
-  /// Build filter chip
-  Widget _buildFilterChip(
-    String label,
-    RxBool isEnabled,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
-    return Obx(
-      () => FilterChip(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16),
-            const SizedBox(width: 4),
-            Text(label),
-          ],
-        ),
-        selected: isEnabled.value,
-        onSelected: (_) => onTap(),
-        selectedColor: const Color(0xFF7C3AED).withOpacity(0.2),
-        checkmarkColor: const Color(0xFF7C3AED),
-        side: BorderSide(
-          color: isEnabled.value
-              ? const Color(0xFF7C3AED)
-              : Colors.grey.withOpacity(0.3),
-        ),
-      ),
-    );
-  }
-
-  /// Build quick stat item
-  Widget _buildQuickStat(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: const Color(0xFF7C3AED), size: 20),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ],
-    );
-  }
-
   /// Build time range selector
   Widget _buildTimeRangeSelector() {
     return Container(
@@ -569,101 +520,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
     );
   }
 
-  /// Build scan type distribution pie chart
-  Widget _buildScanTypeChart(stats) {
-    return Container(
-      height: 300,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Scan Type Distribution',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: PieChart(
-                    PieChartData(
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 60,
-                      sections: [
-                        PieChartSectionData(
-                          value: stats.userScanCount.toDouble(),
-                          title: '${stats.userScanCount}',
-                          color: const Color(0xFF7C3AED),
-                          radius: 50,
-                          titleStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        PieChartSectionData(
-                          value: stats.backgroundScanCount.toDouble(),
-                          title: '${stats.backgroundScanCount}',
-                          color: Colors.blue,
-                          radius: 50,
-                          titleStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Flexible(
-                  flex: 1,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildChartLegend(
-                        'User Scans',
-                        const Color(0xFF7C3AED),
-                        stats.userScanCount,
-                      ),
-                      const SizedBox(height: 12),
-                      _buildChartLegend(
-                        'Background Scans',
-                        Colors.blue,
-                        stats.backgroundScanCount,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Build confidence distribution chart (Phase 3: Advanced Analytics)
   Widget _buildConfidenceDistributionChart(stats) {
     return Container(
@@ -777,17 +633,11 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
                 lineBarsData: [
                   LineChartBarData(
                     spots: [
-                      const FlSpot(0, 10), // 0-25% confidence range
-                      const FlSpot(1, 25), // 25-50% confidence range
-                      FlSpot(
-                        2,
-                        stats.averageConfidence * 1.2,
-                      ), // 50-75% confidence range
-                      FlSpot(
-                        3,
-                        stats.averageConfidence * 0.8,
-                      ), // 75-100% confidence range
-                      const FlSpot(4, 15), // 100% confidence range
+                      const FlSpot(0, 10),
+                      const FlSpot(1, 25),
+                      FlSpot(2, stats.averageConfidence * 1.2),
+                      FlSpot(3, stats.averageConfidence * 0.8),
+                      const FlSpot(4, 15),
                     ],
                     isCurved: true,
                     color: const Color(0xFF7C3AED),
@@ -1274,139 +1124,6 @@ class DetailedStatsView extends GetView<DetailedStatsController> {
         ],
       ),
     );
-  }
-
-  /// Build export options
-  Widget _buildExportOptions() {
-    return Column(
-      children: [
-        _buildOptionTile(
-          'Include Charts & Visualizations',
-          'Add charts and graphs to the PDF report',
-          Icons.bar_chart,
-          controller.includeCharts,
-        ),
-        const SizedBox(height: 12),
-        _buildOptionTile(
-          'Include Detailed Breakdown',
-          'Add comprehensive analysis breakdown',
-          Icons.analytics,
-          controller.includeDetailedBreakdown,
-        ),
-        const SizedBox(height: 12),
-        _buildOptionTile(
-          'Include Time Range Data',
-          'Add historical trend information',
-          Icons.timeline,
-          controller.includeTimeRange,
-        ),
-      ],
-    );
-  }
-
-  /// Build option tile
-  Widget _buildOptionTile(
-    String title,
-    String subtitle,
-    IconData icon,
-    RxBool value,
-  ) {
-    return Obx(
-      () => GestureDetector(
-        onTap: () => value.value = !value.value,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: value.value
-                ? const Color(0xFF7C3AED).withOpacity(0.08)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: value.value
-                  ? const Color(0xFF7C3AED).withOpacity(0.3)
-                  : Colors.grey.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: value.value
-                      ? const Color(0xFF7C3AED)
-                      : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: value.value ? Colors.white : Colors.grey[600],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: value.value
-                      ? const Color(0xFF7C3AED)
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: value.value
-                        ? const Color(0xFF7C3AED)
-                        : Colors.grey.withOpacity(0.4),
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: value.value
-                    ? const Icon(Icons.check, size: 12, color: Colors.white)
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Get template icon
-  IconData _getTemplateIcon(String template) {
-    switch (template) {
-      case 'Standard':
-        return Icons.description;
-      case 'Executive Summary':
-        return Icons.business_center;
-      case 'Technical Details':
-        return Icons.settings;
-      case 'Security Audit':
-        return Icons.security;
-      default:
-        return Icons.description;
-    }
   }
 
   /// Build enhanced stat card

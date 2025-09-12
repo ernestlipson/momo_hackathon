@@ -261,17 +261,19 @@ class SmsScannerView extends GetView<SmsScannerController> {
                   ),
                   const SizedBox(width: 8),
                   // Green dot indicator for background scanning
-                  Obx(() => controller.isBackgroundScanning.value || 
-                             controller.isBackgroundMonitoring.value
-                    ? Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                  Obx(
+                    () =>
+                        controller.isBackgroundScanning.value ||
+                            controller.isBackgroundMonitoring.value
+                        ? Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
@@ -318,8 +320,8 @@ class SmsScannerView extends GetView<SmsScannerController> {
                               controller.isAnalyzing.value
                                   ? 'Analyzing messages...'
                                   : controller.isManualScanning.value
-                                      ? 'Manual scan in progress...'
-                                      : 'Scanning messages...',
+                                  ? 'Manual scan in progress...'
+                                  : 'Scanning messages...',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF7C3AED),

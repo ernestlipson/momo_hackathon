@@ -3,7 +3,6 @@ import 'package:momo_hackathon/app/data/services/local_auth_db_service.dart';
 import '../data/services/network/base_network_service.dart';
 import '../data/services/fraud_detection_service.dart';
 import '../data/services/sms_listener_service.dart';
-import '../data/services/background_sms_worker.dart';
 import '../data/services/news_service.dart';
 import '../data/services/api_article_service.dart';
 import '../data/services/auth_service.dart';
@@ -57,11 +56,11 @@ class InitialBindings extends Bindings {
     Get.put<LocalAuthDbService>(LocalAuthDbService(), permanent: true);
     // Put essential services here that need immediate access
     Get.put<BaseNetworkService>(BaseNetworkService(), permanent: true);
-    
+
     // Initialize core services needed for background scanning
     Get.put<FraudDetectionService>(FraudDetectionService(), permanent: true);
     Get.put<SmsListenerService>(SmsListenerService(), permanent: true);
-    
+
     // Initialize SMS scanner controller to start background scanning immediately
     Get.put<SmsScannerController>(SmsScannerController(), permanent: true);
   }

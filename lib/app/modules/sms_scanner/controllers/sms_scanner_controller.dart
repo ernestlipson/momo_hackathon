@@ -400,7 +400,7 @@ class SmsScannerController extends GetxController {
 
     // Set up timer for periodic scans every 1 minute
     _backgroundScanTimer = Timer.periodic(
-      const Duration(minutes: 1),
+      const Duration(seconds: 10),
       (_) => _performBackgroundScan(),
     );
 
