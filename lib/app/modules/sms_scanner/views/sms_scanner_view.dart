@@ -36,16 +36,6 @@ class SmsScannerView extends GetView<SmsScannerController> {
                   ],
                 ),
               ),
-              PopupMenuItem(
-                onTap: controller.toggleBackgroundMonitoring,
-                child: const Row(
-                  children: [
-                    Icon(Icons.notifications, size: 20),
-                    SizedBox(width: 8),
-                    Text('Toggle Monitoring'),
-                  ],
-                ),
-              ),
             ],
           ),
         ],
@@ -259,13 +249,31 @@ class SmsScannerView extends GetView<SmsScannerController> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Fraud Detection Control',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
+              Row(
+                children: [
+                  const Text(
+                    'Fraud Detection Control',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Green dot indicator for background scanning
+                  Obx(() => controller.isBackgroundScanning.value || 
+                             controller.isBackgroundMonitoring.value
+                    ? Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+                  ),
+                ],
               ),
               // Camera scan icon
               IconButton(
@@ -293,7 +301,8 @@ class SmsScannerView extends GetView<SmsScannerController> {
                       ),
                       const SizedBox(height: 8),
                       if (controller.isScanning.value ||
-                          controller.isAnalyzing.value) ...[
+                          controller.isAnalyzing.value ||
+                          controller.isManualScanning.value) ...[
                         Row(
                           children: [
                             const SizedBox(
@@ -308,7 +317,9 @@ class SmsScannerView extends GetView<SmsScannerController> {
                             Text(
                               controller.isAnalyzing.value
                                   ? 'Analyzing messages...'
-                                  : 'Scanning messages...',
+                                  : controller.isManualScanning.value
+                                      ? 'Manual scan in progress...'
+                                      : 'Scanning messages...',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF7C3AED),
@@ -328,8 +339,9 @@ class SmsScannerView extends GetView<SmsScannerController> {
                 ElevatedButton.icon(
                   onPressed:
                       controller.hasPermission.value &&
-                          !controller.isScanning.value
-                      ? controller.scanRecentMessages
+                          !controller.isScanning.value &&
+                          !controller.isManualScanning.value
+                      ? controller.handleManualScan
                       : null,
                   icon: const Icon(Icons.search, size: 20),
                   label: const Text('Scan Now'),

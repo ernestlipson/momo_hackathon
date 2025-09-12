@@ -27,6 +27,7 @@ class SmsScannerController extends GetxController {
 
   // Observables
   final isScanning = false.obs;
+  final isManualScanning = false.obs; // Track manual scan separately
   final hasPermission = false.obs;
   final scannedMessages = <app_models.SmsMessage>[].obs;
   final fraudResults = <FraudResult>[].obs;
@@ -47,11 +48,21 @@ class SmsScannerController extends GetxController {
     _initializeStorage();
     _checkPermissions();
     _loadStoredData();
+
+    // Start auto background scanning when permissions are available
+    ever(hasPermission, (bool permission) {
+      if (permission) {
+        _initializeBackgroundMonitoring();
+        _setupSmsListener();
+        _startBackgroundScanning();
+      }
+    });
   }
 
   @override
   void onReady() {
     super.onReady();
+    // Auto-start background scanning if permissions are already granted
     if (hasPermission.value) {
       _initializeBackgroundMonitoring();
       _setupSmsListener();
@@ -240,6 +251,7 @@ class SmsScannerController extends GetxController {
     }
 
     isScanning.value = true;
+    isManualScanning.value = true;
 
     try {
       // Read SMS messages from device using another_telephony
@@ -280,14 +292,43 @@ class SmsScannerController extends GetxController {
 
       print('📱 Found ${mobileMoneyMessages.length} mobile money messages');
 
-      // Clear previous results
+      // Store existing background results before clearing
+      final existingBackgroundResults = fraudResults
+          .where(
+            (result) => result.additionalData?['source'] == 'BACKGROUND_SCAN',
+          )
+          .toList();
+      final existingBackgroundMessages = scannedMessages
+          .where(
+            (msg) => fraudResults.any(
+              (result) =>
+                  result.messageId == msg.id &&
+                  result.additionalData?['source'] == 'BACKGROUND_SCAN',
+            ),
+          )
+          .toList();
+
+      // Clear previous manual scan results only
       scannedMessages.clear();
       fraudResults.clear();
 
-      // Add and analyze each message
+      // Restore background results
+      fraudResults.addAll(existingBackgroundResults);
+      scannedMessages.addAll(existingBackgroundMessages);
+
+      // Add and analyze each message from manual scan
       for (app_models.SmsMessage message in mobileMoneyMessages) {
-        scannedMessages.add(message);
-        await _analyzeMessage(message);
+        // Check if manual scan was cancelled
+        if (!isManualScanning.value) {
+          print('🛑 Manual scan cancelled');
+          return;
+        }
+
+        // Check if this message was already scanned (to avoid duplicates)
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.add(message);
+          await _analyzeMessage(message);
+        }
       }
 
       totalScanned.value = scannedMessages.length;
@@ -295,7 +336,7 @@ class SmsScannerController extends GetxController {
       _saveToStorage();
 
       Get.snackbar(
-        'Scan Complete',
+        'Manual Scan Complete',
         'Analyzed ${mobileMoneyMessages.length} mobile money messages',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.blue.withOpacity(0.8),
@@ -312,7 +353,40 @@ class SmsScannerController extends GetxController {
       );
     } finally {
       isScanning.value = false;
+      isManualScanning.value = false;
     }
+  }
+
+  /// Handle manual scan with background scan conflict detection
+  Future<void> handleManualScan() async {
+    // Check if background scan is currently running
+    if (isBackgroundScanning.value) {
+      Get.snackbar(
+        'Scan in Progress',
+        'Background scanning is currently running. Please wait for it to complete.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Check if manual scan is already running
+    if (isManualScanning.value) {
+      Get.snackbar(
+        'Manual Scan in Progress',
+        'A manual scan is already running. You can navigate away and return to see results.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.blue.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Proceed with normal manual scan
+    await scanRecentMessages();
   }
 
   /// Start background scanning timer
@@ -815,7 +889,6 @@ class SmsScannerController extends GetxController {
 
       if (result.isFraud) {
         fraudDetected.value++;
-        _showImageFraudAlert(result);
       } else {
         Get.snackbar(
           'Analysis Complete',
@@ -847,56 +920,5 @@ class SmsScannerController extends GetxController {
       isAnalyzing.value = false;
       Get.log('🏁 Image analysis process completed');
     }
-  }
-
-  /// Show fraud alert for image analysis
-  void _showImageFraudAlert(FraudResult result) {
-    Get.dialog(
-      AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning, color: Colors.red, size: 28),
-            SizedBox(width: 12),
-            Text('Fraud Detected in Image'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Confidence: ${(result.confidenceScore * 100).toStringAsFixed(1)}%',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text(result.reason ?? 'Fraudulent content detected'),
-            if (result.redFlags.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Red Flags:',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              ...result.redFlags.map((flag) => Text('• $flag')),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text('OK')),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              Get.toNamed('/fraud-messages');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-            ),
-            child: const Text(
-              'View All Fraud',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

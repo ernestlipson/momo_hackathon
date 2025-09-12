@@ -7,6 +7,7 @@ import '../data/services/background_sms_worker.dart';
 import '../data/services/news_service.dart';
 import '../data/services/api_article_service.dart';
 import '../data/services/auth_service.dart';
+import '../modules/sms_scanner/controllers/sms_scanner_controller.dart';
 
 /// Service bindings for dependency injection
 class ServiceBindings extends Bindings {
@@ -25,6 +26,11 @@ class ServiceBindings extends Bindings {
     // Initialize SMS listener service for background monitoring
     if (!Get.isRegistered<SmsListenerService>()) {
       Get.put<SmsListenerService>(SmsListenerService(), permanent: true);
+    }
+
+    // Initialize SMS scanner controller for background scanning
+    if (!Get.isRegistered<SmsScannerController>()) {
+      Get.put<SmsScannerController>(SmsScannerController(), permanent: true);
     }
 
     // Initialize news service for fetching articles
@@ -51,5 +57,12 @@ class InitialBindings extends Bindings {
     Get.put<LocalAuthDbService>(LocalAuthDbService(), permanent: true);
     // Put essential services here that need immediate access
     Get.put<BaseNetworkService>(BaseNetworkService(), permanent: true);
+    
+    // Initialize core services needed for background scanning
+    Get.put<FraudDetectionService>(FraudDetectionService(), permanent: true);
+    Get.put<SmsListenerService>(SmsListenerService(), permanent: true);
+    
+    // Initialize SMS scanner controller to start background scanning immediately
+    Get.put<SmsScannerController>(SmsScannerController(), permanent: true);
   }
 }

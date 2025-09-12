@@ -7,13 +7,14 @@ import '../local_auth_db_service.dart';
 
 class BaseNetworkService extends GetxService {
   static const String baseUrl = 'https://f0c17w6f-8000.uks1.devtunnels.ms/api';
+  static const String prodBaseUrl = "https://api-catch.reach.amalitech.com/api";
   late final Dio _dio;
 
   @override
   void onInit() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: baseUrl,
+        baseUrl: prodBaseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         sendTimeout: const Duration(seconds: 30),
