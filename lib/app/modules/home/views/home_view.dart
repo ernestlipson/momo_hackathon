@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import '../controllers/home_controller.dart';
-import 'package:momo_hackathon/app/data/models/news_article.dart';
 import 'package:momo_hackathon/app/data/models/api_article.dart';
+import 'package:momo_hackathon/app/data/models/news_article.dart';
+
+import '../controllers/home_controller.dart';
 
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
@@ -798,7 +800,7 @@ class HomeView extends GetView<HomeController> {
       url: '', // No external URL for API articles
       urlToImage: article.coverImage,
       publishedAt: article.createdAt,
-      source: Source(name: 'Article'), // Static source
+      source: Source(name: article.categoryDisplay), // Use category display
       content: article.content, // Include the full content
     );
     Get.toNamed('/news-detail', arguments: newsArticle);
@@ -828,105 +830,111 @@ class HomeView extends GetView<HomeController> {
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
             children: [
-              // Article Image (Left side)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 120,
-                  height: 90,
-                  color: const Color(0xFF7C3AED).withOpacity(0.1),
-                  child:
-                      article.coverImage != null &&
-                          article.coverImage!.isNotEmpty
-                      ? Image.network(
-                          article.coverImage!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildApiImagePlaceholder();
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return _buildApiImagePlaceholder();
-                          },
-                        )
-                      : _buildApiImagePlaceholder(),
-                ),
-              ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Article Image (Left side)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 90,
+                      height: 70,
+                      color: const Color(0xFF7C3AED).withOpacity(0.1),
+                      child:
+                          article.coverImage != null &&
+                              article.coverImage!.isNotEmpty
+                          ? Image.network(
+                              article.coverImage!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildApiImagePlaceholder();
+                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return _buildApiImagePlaceholder();
+                                  },
+                            )
+                          : _buildApiImagePlaceholder(),
+                    ),
+                  ),
 
-              const SizedBox(width: 16),
+                  const SizedBox(width: 16),
 
-              // Article Content (Right side)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Date
-                    Row(
+                  // Article Content (Right side)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Article',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF7C3AED),
+                        // Date
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+
+                              child: Text(
+                                article.categoryDisplay,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF7C3AED),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            article.formattedDate,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[600],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                article.formattedDate,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
+
+                        const SizedBox(height: 8),
+
+                        // Article Title
+                        Text(
+                          article.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+
+                        // const SizedBox(height: 6),
                       ],
                     ),
-
-                    const SizedBox(height: 8),
-
-                    // Article Title
-                    Text(
-                      article.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // Article Excerpt
-                    Text(
-                      article.excerpt,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+              // Article Excerpt
+              const SizedBox(height: 10),
+              Text(
+                article.excerpt,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  height: 1.4,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -937,46 +945,54 @@ class HomeView extends GetView<HomeController> {
 
   Widget _buildApiImagePlaceholder() {
     return Container(
-      width: 120,
-      height: 90,
+      // width: 100,
+      // height: 90,
       color: const Color(0xFF7C3AED).withOpacity(0.1),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.article, size: 24, color: Color(0xFF7C3AED)),
-          SizedBox(height: 4),
-          Text(
-            'Article',
-            style: TextStyle(
-              color: Color(0xFF7C3AED),
-              fontWeight: FontWeight.w500,
-              fontSize: 12,
+      child: SvgPicture.asset(
+        'assets/svg/Placeholder_view_vector.svg',
+        fit: BoxFit.cover,
+        placeholderBuilder: (context) => const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.article, size: 24, color: Color(0xFF7C3AED)),
+            SizedBox(height: 4),
+            Text(
+              'Article',
+              style: TextStyle(
+                color: Color(0xFF7C3AED),
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCompactImagePlaceholder() {
     return Container(
-      width: 120,
-      height: 90,
+      // width: 120,
+      // height: 90,
       color: const Color(0xFF7C3AED).withOpacity(0.1),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.article, size: 24, color: Color(0xFF7C3AED)),
-          SizedBox(height: 4),
-          Text(
-            'News',
-            style: TextStyle(
-              color: Color(0xFF7C3AED),
-              fontWeight: FontWeight.w500,
-              fontSize: 12,
+      child: SvgPicture.asset(
+        'assets/svg/Placeholder_view_vector.svg',
+        fit: BoxFit.cover,
+        placeholderBuilder: (context) => const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.article, size: 24, color: Color(0xFF7C3AED)),
+            SizedBox(height: 4),
+            Text(
+              'News',
+              style: TextStyle(
+                color: Color(0xFF7C3AED),
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

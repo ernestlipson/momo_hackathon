@@ -1,9 +1,11 @@
 import 'dart:async';
+
+import 'package:another_telephony/telephony.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:another_telephony/telephony.dart';
-import '../models/sms_message.dart' as app_models;
+
 import '../models/fraud_result.dart';
+import '../models/sms_message.dart' as app_models;
 import 'fraud_detection_service.dart';
 
 /// Background message handler for incoming SMS
@@ -137,7 +139,7 @@ class SmsListenerService extends GetxService {
       print('🔍 Analyzing SMS in background: ${message.id}');
 
       final result = await _fraudService.analyzeSmsMessage(
-        message,
+        message: message,
         source: 'BACKGROUND_SCAN',
       );
 

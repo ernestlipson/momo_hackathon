@@ -98,9 +98,9 @@ class FraudDetectionService extends GetxService {
   }
 
   /// Analyze SMS message for fraud using the API
-  Future<FraudResult> analyzeSmsMessage(
-    SmsMessage message, {
-    String source = 'USER_SCAN',
+  Future<FraudResult> analyzeSmsMessage({
+    required SmsMessage message,
+    required String source,
   }) async {
     try {
       // Call the actual API for fraud detection
@@ -451,7 +451,7 @@ class FraudDetectionService extends GetxService {
     final List<FraudResult> results = [];
 
     for (SmsMessage message in messages) {
-      final result = await analyzeSmsMessage(message, source: source);
+      final result = await analyzeSmsMessage(message: message, source: source);
       results.add(result);
     }
 

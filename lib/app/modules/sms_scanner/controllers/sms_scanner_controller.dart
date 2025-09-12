@@ -22,6 +22,9 @@ class SmsScannerController extends GetxController {
   final GetStorage _storage = GetStorage();
   final Telephony telephony = Telephony.instance;
 
+  // Background scan timer
+  Timer? _backgroundScanTimer;
+
   // Observables
   final isScanning = false.obs;
   final hasPermission = false.obs;
@@ -30,11 +33,13 @@ class SmsScannerController extends GetxController {
   final isAnalyzing = false.obs;
   final selectedNavIndex = 0.obs;
   final isBackgroundMonitoring = false.obs;
+  final isBackgroundScanning = false.obs;
 
   // Statistics
   final totalScanned = 0.obs;
   final fraudDetected = 0.obs;
   final lastScanTime = Rxn<DateTime>();
+  final lastBackgroundScanTime = Rxn<DateTime>();
 
   @override
   void onInit() {
@@ -50,11 +55,13 @@ class SmsScannerController extends GetxController {
     if (hasPermission.value) {
       _initializeBackgroundMonitoring();
       _setupSmsListener();
+      _startBackgroundScanning();
     }
   }
 
   @override
   void onClose() {
+    _backgroundScanTimer?.cancel();
     _smsListener.stopListening();
     super.onClose();
   }
@@ -102,6 +109,7 @@ class SmsScannerController extends GetxController {
       );
       _setupSmsListener();
       _startBackgroundMonitoring();
+      _startBackgroundScanning();
     } else {
       Get.snackbar(
         'Permission Required',
@@ -307,13 +315,193 @@ class SmsScannerController extends GetxController {
     }
   }
 
+  /// Start background scanning timer
+  void _startBackgroundScanning() {
+    if (!hasPermission.value) return;
+
+    Get.log('🔄 Starting background scanning...');
+
+    // Perform initial background scan immediately
+    _performBackgroundScan();
+
+    // Set up timer for periodic scans every 1 minute
+    _backgroundScanTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _performBackgroundScan(),
+    );
+
+    Get.log('⏰ Background scan timer started (1 minute intervals)');
+  }
+
+  /// Perform background scan
+  Future<void> _performBackgroundScan() async {
+    if (!hasPermission.value || isBackgroundScanning.value) return;
+
+    try {
+      isBackgroundScanning.value = true;
+      Get.log('🔍 Starting background scan...');
+
+      final isInitialScan = lastBackgroundScanTime.value == null;
+      List<app_models.SmsMessage> messagesToAnalyze;
+
+      if (isInitialScan) {
+        // Initial scan: get last 30 days mobile money messages
+        messagesToAnalyze = await _getRecentMobileMoneyMessages();
+        Get.log(
+          '📱 Initial background scan: ${messagesToAnalyze.length} messages',
+        );
+      } else {
+        // Incremental scan: only new messages since last background scan
+        messagesToAnalyze = await _getNewMobileMoneyMessages();
+        Get.log(
+          '📱 Incremental background scan: ${messagesToAnalyze.length} new messages',
+        );
+      }
+
+      if (messagesToAnalyze.isEmpty) {
+        Get.log('📱 No new messages to analyze');
+        return;
+      }
+
+      // Analyze each message
+      int newFraudCount = 0;
+      for (final message in messagesToAnalyze) {
+        // Check if message is already analyzed (avoid duplicates)
+        if (!scannedMessages.any((m) => m.id == message.id)) {
+          scannedMessages.insert(0, message);
+          totalScanned.value++;
+
+          // Analyze for fraud with BACKGROUND_SCAN source
+          final result = await _fraudService.analyzeSmsMessage(
+            message: message,
+            source: 'BACKGROUND_SCAN',
+          );
+
+          fraudResults.insert(0, result);
+          if (result.isFraud) {
+            fraudDetected.value++;
+            newFraudCount++;
+          }
+        }
+      }
+
+      // Update timestamps
+      lastBackgroundScanTime.value = DateTime.now();
+      lastScanTime.value = DateTime.now();
+      _saveToStorage();
+
+      // Show completion notification
+      final scanType = isInitialScan ? 'Initial' : 'Background';
+      final fraudMessage = newFraudCount > 0
+          ? ' ($newFraudCount fraud detected!)'
+          : '';
+
+      Get.snackbar(
+        '$scanType Scan Complete',
+        '${messagesToAnalyze.length} messages analyzed$fraudMessage',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: newFraudCount > 0
+            ? Colors.red.withOpacity(0.8)
+            : Colors.blue.withOpacity(0.8),
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+
+      Get.log(
+        '✅ Background scan complete: ${messagesToAnalyze.length} messages, $newFraudCount fraud',
+      );
+    } catch (e) {
+      Get.log('❌ Background scan error: $e');
+    } finally {
+      isBackgroundScanning.value = false;
+    }
+  }
+
+  /// Get recent mobile money messages (last 30 days)
+  Future<List<app_models.SmsMessage>> _getRecentMobileMoneyMessages() async {
+    final smsMessages = await telephony.getInboxSms(
+      columns: [
+        SmsColumn.ID,
+        SmsColumn.ADDRESS,
+        SmsColumn.BODY,
+        SmsColumn.DATE,
+      ],
+    );
+
+    final cutoffDate = DateTime.now().subtract(const Duration(days: 30));
+    return smsMessages
+        .where(
+          (sms) =>
+              sms.date != null &&
+              DateTime.fromMillisecondsSinceEpoch(
+                sms.date!,
+              ).isAfter(cutoffDate),
+        )
+        .map(
+          (sms) => app_models.SmsMessage(
+            id:
+                sms.id?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            sender: sms.address ?? 'Unknown',
+            body: sms.body ?? '',
+            timestamp: sms.date != null
+                ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                : DateTime.now(),
+            address: sms.address,
+          ),
+        )
+        .where((msg) => msg.isMobileMoneyTransaction)
+        .toList();
+  }
+
+  /// Get new mobile money messages since last background scan
+  Future<List<app_models.SmsMessage>> _getNewMobileMoneyMessages() async {
+    if (lastBackgroundScanTime.value == null) {
+      return await _getRecentMobileMoneyMessages();
+    }
+
+    final smsMessages = await telephony.getInboxSms(
+      columns: [
+        SmsColumn.ID,
+        SmsColumn.ADDRESS,
+        SmsColumn.BODY,
+        SmsColumn.DATE,
+      ],
+    );
+
+    final lastScanTime = lastBackgroundScanTime.value!;
+    return smsMessages
+        .where(
+          (sms) =>
+              sms.date != null &&
+              DateTime.fromMillisecondsSinceEpoch(
+                sms.date!,
+              ).isAfter(lastScanTime),
+        )
+        .map(
+          (sms) => app_models.SmsMessage(
+            id:
+                sms.id?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            sender: sms.address ?? 'Unknown',
+            body: sms.body ?? '',
+            timestamp: sms.date != null
+                ? DateTime.fromMillisecondsSinceEpoch(sms.date!)
+                : DateTime.now(),
+            address: sms.address,
+          ),
+        )
+        .where((msg) => msg.isMobileMoneyTransaction)
+        .toList();
+  }
+
   /// Analyze a single message for fraud
   Future<void> _analyzeMessage(app_models.SmsMessage message) async {
     try {
       isAnalyzing.value = true;
 
       final result = await _fraudService.analyzeSmsMessage(
-        message,
+        message: message,
         source: 'USER_SCAN',
       );
       Get.log('Analyzing message: $result');
@@ -361,6 +549,10 @@ class SmsScannerController extends GetxController {
         if (lastScanStr != null) {
           lastScanTime.value = DateTime.parse(lastScanStr);
         }
+        final lastBackgroundScanStr = storedStats['lastBackgroundScanTime'];
+        if (lastBackgroundScanStr != null) {
+          lastBackgroundScanTime.value = DateTime.parse(lastBackgroundScanStr);
+        }
       }
     } catch (e) {
       print('Error loading stored data: $e');
@@ -382,6 +574,8 @@ class SmsScannerController extends GetxController {
         'totalScanned': totalScanned.value,
         'fraudDetected': fraudDetected.value,
         'lastScanTime': lastScanTime.value?.toIso8601String(),
+        'lastBackgroundScanTime': lastBackgroundScanTime.value
+            ?.toIso8601String(),
       });
     } catch (e) {
       print('Error saving data: $e');
@@ -426,6 +620,7 @@ class SmsScannerController extends GetxController {
         totalScanned.value = 0;
         fraudDetected.value = 0;
         lastScanTime.value = null;
+        lastBackgroundScanTime.value = null;
 
         // Also clear background results
         _smsListener.clearBackgroundResults();
